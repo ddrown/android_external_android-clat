@@ -1,0 +1,223 @@
+/*
+ * Copyright 2011 Daniel Drown
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * dump.c - print various headers for debugging
+ */
+#include "system_headers.h"
+#include "checksum.h"
+
+/* print icmp header */
+void dump_icmp(struct icmphdr *icmp) {
+  printf("ICMP\n");
+
+  printf("icmp.type = %x ",icmp->type);
+  if(icmp->type == ICMP_ECHOREPLY) {
+    printf("echo reply");
+  } else if(icmp->type == ICMP_ECHO) {
+    printf("echo request");
+  } else {
+    printf("other");
+  }
+  printf("\n");
+  printf("icmp.code = %x\n",icmp->code);
+  printf("icmp.checksum = %x\n",ntohs(icmp->checksum));
+  if(icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
+    printf("icmp.un.echo.id = %x\n",ntohs(icmp->un.echo.id));
+    printf("icmp.un.echo.sequence = %x\n",ntohs(icmp->un.echo.sequence));
+  }
+}
+
+/* print ip header */
+void dump_ip(struct iphdr *header) {
+  u_int16_t frag_flags;
+
+  frag_flags = ntohs(header->frag_off);
+
+  printf("IP packet\n");
+  printf("header_len = %x\n",header->ihl);
+  printf("version = %x\n",header->version);
+  printf("tos = %x\n",header->tos);
+  printf("tot_len = %x\n",ntohs(header->tot_len));
+  printf("id = %x\n",ntohs(header->id));
+  printf("frag: ");
+  if(frag_flags & IP_RF) {
+    printf("(RF) ");
+  }
+  if(frag_flags & IP_DF) {
+    printf("DF ");
+  }
+  if(frag_flags & IP_MF) {
+    printf("MF ");
+  }
+  printf("offset = %x\n",frag_flags & IP_OFFMASK);
+  printf("ttl = %x\n",header->ttl);
+  printf("protocol = %x\n",header->protocol);
+  printf("checksum = %x\n",ntohs(header->check));
+  printf("saddr = %x\n",ntohl(header->saddr));
+  printf("daddr = %x\n",ntohl(header->daddr));
+}
+
+/* print ip6 header */
+void dump_ip6(struct ip6_hdr *header) {
+  printf("ipv6\n");
+  printf("version = %x\n",header->ip6_vfc >> 4);
+  printf("traffic class = %x\n",header->ip6_flow >> 20);
+  printf("flow label = %x\n",ntohl(header->ip6_flow & 0x000fffff));
+  printf("payload len = %x\n",ntohs(header->ip6_plen));
+  printf("next header = %x\n",header->ip6_nxt);
+  printf("hop limit = %x\n",header->ip6_hlim);
+  printf("source = %x,%x,%x,%x\n",ntohl(header->ip6_src.s6_addr32[0]),ntohl(header->ip6_src.s6_addr32[1]),ntohl(header->ip6_src.s6_addr32[2]),ntohl(header->ip6_src.s6_addr32[3]));
+  printf("dest = %x,%x,%x,%x\n",ntohl(header->ip6_dst.s6_addr32[0]),ntohl(header->ip6_dst.s6_addr32[1]),ntohl(header->ip6_dst.s6_addr32[2]),ntohl(header->ip6_dst.s6_addr32[3]));
+}
+
+/* print icmp6 header */
+void dump_icmp6(struct icmp6_hdr *icmp6) {
+  printf("ICMP6\n");
+  printf("type = %x",icmp6->icmp6_type);
+  if(icmp6->icmp6_type == ICMP6_ECHO_REQUEST) {
+    printf("(echo request)");
+  } else if(icmp6->icmp6_type == ICMP6_ECHO_REPLY) {
+    printf("(echo reply)");
+  }
+  printf("\n");
+  printf("code = %x\n",icmp6->icmp6_code);
+
+  printf("checksum = %x\n",icmp6->icmp6_cksum);
+
+  if((icmp6->icmp6_type == ICMP6_ECHO_REQUEST) || (icmp6->icmp6_type == ICMP6_ECHO_REPLY)) {
+    printf("icmp6_id = %x\n",icmp6->icmp6_id);
+    printf("icmp6_seq = %x\n",icmp6->icmp6_seq);
+  }
+}
+
+/* print ipv4/udp header */
+void dump_udp(const struct udphdr *udp, const struct iphdr *ip, const char *payload, ssize_t payload_size) {
+  uint32_t temp_checksum;
+  uint16_t my_checksum;
+
+  temp_checksum = ipv4_pseudo_header_checksum(0, ip);
+  temp_checksum = ip_checksum_add(temp_checksum, udp, sizeof(struct udphdr));
+  temp_checksum = ip_checksum_add(temp_checksum, payload, payload_size);
+  my_checksum = ip_checksum_finish(temp_checksum);
+
+  printf("UDP\n");
+  printf("source = %x\n",ntohs(udp->source));
+  printf("dest = %x\n",ntohs(udp->dest));
+  printf("len = %x\n",ntohs(udp->len));
+  printf("check = %x (mine %x)\n",udp->check,my_checksum);
+}
+
+/* print ipv6/udp header */
+void dump_udp6(const struct udphdr *udp, const struct ip6_hdr *ip6, const char *payload, ssize_t payload_size) {
+  uint32_t temp_checksum;
+  uint16_t my_checksum;
+
+  temp_checksum = ipv6_pseudo_header_checksum(0, ip6);
+  temp_checksum = ip_checksum_add(temp_checksum, udp, sizeof(struct udphdr));
+  temp_checksum = ip_checksum_add(temp_checksum, payload, payload_size);
+  my_checksum = ip_checksum_finish(temp_checksum);
+
+  printf("UDP6\n");
+  printf("source = %x\n",ntohs(udp->source));
+  printf("dest = %x\n",ntohs(udp->dest));
+  printf("len = %x\n",ntohs(udp->len));
+  printf("check = %x (mine %x)\n",udp->check,my_checksum);
+}
+
+/* print ipv4/tcp header */
+void dump_tcp(const struct tcphdr *tcp, const struct iphdr *ip, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size) {
+  uint32_t temp_checksum;
+  uint16_t my_checksum;
+
+  temp_checksum = ipv4_pseudo_header_checksum(0, ip);
+  temp_checksum = ip_checksum_add(temp_checksum, tcp, sizeof(struct tcphdr));
+  if(options) {
+    temp_checksum = ip_checksum_add(temp_checksum, options, options_size);
+  }
+  temp_checksum = ip_checksum_add(temp_checksum, payload, payload_size);
+  my_checksum = ip_checksum_finish(temp_checksum);
+
+  printf("TCP\n");
+  printf("source = %x\n",ntohs(tcp->source));
+  printf("dest = %x\n",ntohs(tcp->dest));
+  printf("seq = %x\n",ntohl(tcp->seq));
+  printf("ack = %x\n",ntohl(tcp->ack_seq));
+  printf("d_off = %x\n",tcp->doff);
+  printf("res1 = %x\n",tcp->res1);
+#ifdef __BIONIC__
+  printf("CWR = %x\n",tcp->cwr);
+  printf("ECE = %x\n",tcp->ece);
+#else
+  printf("CWR/ECE = %x\n",tcp->res2);
+#endif
+  printf("urg = %x  ack = %x  psh = %x  rst = %x  syn = %x  fin = %x\n",
+      tcp->urg, tcp->ack, tcp->psh, tcp->rst, tcp->syn, tcp->fin);
+  printf("window = %x\n",ntohs(tcp->window));
+  printf("check = %x [mine %x]\n",tcp->check,my_checksum);
+  printf("urgent = %x\n",tcp->urg_ptr);
+
+  if(options) {
+    int i;
+
+    printf("options: ");
+    for(i=0; i<options_size; i++) {
+      printf("%x ",*(options+i));
+    }
+    printf("\n");
+  }
+}
+
+/* print ipv6/tcp header */
+void dump_tcp6(const struct tcphdr *tcp, const struct ip6_hdr *ip6, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size) {
+  uint32_t temp_checksum;
+  uint16_t my_checksum;
+
+  temp_checksum = ipv6_pseudo_header_checksum(0, ip6);
+  temp_checksum = ip_checksum_add(temp_checksum, tcp, sizeof(struct tcphdr));
+  if(options) {
+    temp_checksum = ip_checksum_add(temp_checksum, options, options_size);
+  }
+  temp_checksum = ip_checksum_add(temp_checksum, payload, payload_size);
+  my_checksum = ip_checksum_finish(temp_checksum);
+
+  printf("TCP\n");
+  printf("source = %x\n",ntohs(tcp->source));
+  printf("dest = %x\n",ntohs(tcp->dest));
+  printf("seq = %x\n",ntohl(tcp->seq));
+  printf("ack = %x\n",ntohl(tcp->ack_seq));
+  printf("d_off = %x\n",tcp->doff);
+  printf("res1 = %x\n",tcp->res1);
+#ifdef __BIONIC__
+  printf("CWR = %x\n",tcp->cwr);
+  printf("ECE = %x\n",tcp->ece);
+#else
+  printf("CWR/ECE = %x\n",tcp->res2);
+#endif
+  printf("urg = %x  ack = %x  psh = %x  rst = %x  syn = %x  fin = %x\n",
+      tcp->urg, tcp->ack, tcp->psh, tcp->rst, tcp->syn, tcp->fin);
+  printf("window = %x\n",ntohs(tcp->window));
+  printf("check = %x [mine %x]\n",tcp->check,my_checksum);
+  printf("urgent = %x\n",tcp->urg_ptr);
+
+  if(options) {
+    int i;
+
+    printf("options: ");
+    for(i=0; i<options_size; i++) {
+      printf("%x ",*(options+i));
+    }
+    printf("\n");
+  }
+}
