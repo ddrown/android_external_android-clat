@@ -1,4 +1,7 @@
 #!/system/bin/sh
 
+# because init uses SIGKILL to stop processes, this script cleans up
+# configuration settings
+
 echo 0 >/proc/sys/net/ipv6/conf/all/forwarding
 setprop net.ipv4.compat ""

@@ -300,8 +300,10 @@ int read_config(const char *file) {
 
   tmp_ptr = (void *)config_str(root, "plat_from_dns64", "yes");
   if(!tmp_ptr || strcmp(tmp_ptr, "no") == 0) {
-    if(!(tmp_ptr = config_item_ip6(root, "plat_subnet", NULL)))
+    if(!(tmp_ptr = config_item_ip6(root, "plat_subnet", NULL))) {
+      logmsg(ANDROID_LOG_FATAL, "plat_from_dns64 disabled, but no plat_subnet specified");
       goto failed;
+    }
     memcpy(&config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
     free(tmp_ptr);
   } else {

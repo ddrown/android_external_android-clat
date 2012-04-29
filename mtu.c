@@ -37,7 +37,8 @@ int getifmtu(const char *ifname) {
   if(fd < 0) {
     return -1;
   }
-  strcpy(if_mtu.ifr_name, ifname);
+  strncpy(if_mtu.ifr_name, ifname, IFNAMSIZ);
+  if_mtu.ifr_name[IFNAMSIZ - 1] = '\0';
   if(ioctl(fd, SIOCGIFMTU, &if_mtu) < 0) {
     return -1;
   }

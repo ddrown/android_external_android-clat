@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2012 Daniel Drown <dan-android@drown.org>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,13 +28,13 @@
 
 /* function: add_address
  * adds an IP address to/from an interface, returns 0 on success and <0 on failure
- * ifname    - interface name to change
+ * ifname    - name of interface to change
  * family    - address family (AF_INET, AF_INET6)
  * address   - pointer to a struct in_addr or in6_addr
- * cidr      - bitmask of network (example: 24 for AF_INET's 255.255.255.0)
+ * prefixlen - bitmask of network (example: 24 for AF_INET's 255.255.255.0)
  * broadcast - broadcast address (only for AF_INET, ignored for AF_INET6)
  */
-int add_address(const char *ifname, int family, const void *address, int cidr, const void *broadcast) {
+int add_address(const char *ifname, int family, const void *address, int prefixlen, const void *broadcast) {
   int retval = -1;
   ssize_t addr_size;
   struct ifaddrmsg ifa;
@@ -59,7 +59,7 @@ int add_address(const char *ifname, int family, const void *address, int cidr, c
     goto cleanup;
   }
   ifa.ifa_family = family;
-  ifa.ifa_prefixlen = cidr;
+  ifa.ifa_prefixlen = prefixlen;
   ifa.ifa_scope = 0;
 
   msg = nlmsg_alloc_ifaddr(RTM_NEWADDR, NLM_F_ACK | NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE, &ifa);
@@ -72,16 +72,18 @@ int add_address(const char *ifname, int family, const void *address, int cidr, c
     retval = -ENOMEM;
     goto cleanup;
   }
-  if(family == AF_INET6) 
+  if(family == AF_INET6) {
     if(nla_put(msg, IFA_ADDRESS, addr_size, address) < 0) {
       retval = -ENOMEM;
       goto cleanup;
     }
-  if(family == AF_INET) // AF_INET6 has no broadcast address
+  }
+  if(family == AF_INET) { // AF_INET6 has no broadcast address
     if(nla_put(msg, IFA_BROADCAST, addr_size, broadcast) < 0) {
       retval = -ENOMEM;
       goto cleanup;
     }
+  }
 
   send_netlink_msg(msg, callbacks);
 

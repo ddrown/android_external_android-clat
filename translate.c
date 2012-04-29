@@ -124,7 +124,7 @@ void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, c
   io_targ[2].iov_len = sizeof(icmp6_targ);
   io_targ[3].iov_base = (char *)payload;
   io_targ[3].iov_len = payload_size;
-  
+
   writev(fd, io_targ, 4);
 }
 
@@ -166,7 +166,7 @@ void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *ic
   io_targ[2].iov_len = sizeof(icmp_targ);
   io_targ[3].iov_base = (char *)payload;
   io_targ[3].iov_len = payload_size;
-  
+
   writev(fd, io_targ, 4);
 }
 
@@ -188,7 +188,7 @@ void udp_translate(int fd, const struct udphdr *udp, const char *payload, ssize_
 
   memcpy(&udp_targ, udp, sizeof(udp_targ));
   udp_targ.check = 0; // reset checksum, to be calculated
-  
+
   checksum = ip_checksum_add(checksum, &udp_targ, sizeof(struct udphdr));
   checksum = ip_checksum_add(checksum, payload, payload_size);
   udp_targ.check = ip_checksum_finish(checksum);
@@ -197,7 +197,7 @@ void udp_translate(int fd, const struct udphdr *udp, const char *payload, ssize_
   io_targ[2].iov_len = sizeof(udp_targ);
   io_targ[3].iov_base = (char *)payload;
   io_targ[3].iov_len = payload_size;
-  
+
   writev(fd, io_targ, 4);
 }
 
@@ -225,7 +225,7 @@ void udp_to_udp6(int fd, const struct iphdr *ip, const struct udphdr *udp, const
   io_targ[0].iov_len = sizeof(tun_header);
   io_targ[1].iov_base = &ip6_targ;
   io_targ[1].iov_len = sizeof(ip6_targ);
-  
+
   udp_translate(fd,udp,payload,payload_size,io_targ,checksum);
 }
 

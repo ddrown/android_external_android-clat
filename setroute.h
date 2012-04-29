@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2012 Daniel Drown <dan-android@drown.org>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");

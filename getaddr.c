@@ -45,14 +45,14 @@ static int getaddr_cb(struct nl_msg *msg, void *data) {
   struct rtattr *rta_p;
   int rta_len;
   struct target *targ_p = (struct target *)data;
-  
+
   ifa_p = (struct ifaddrmsg *)nlmsg_data(nlmsg_hdr(msg));
   rta_p = (struct rtattr *)IFA_RTA(ifa_p);
 
   if(ifa_p->ifa_index != targ_p->ifindex)
     return NL_OK;
 
-  if(ifa_p->ifa_scope != RT_SCOPE_UNIVERSE) 
+  if(ifa_p->ifa_scope != RT_SCOPE_UNIVERSE)
     return NL_OK;
 
   rta_len = RTM_PAYLOAD(nlmsg_hdr(msg));
@@ -89,7 +89,7 @@ static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, void *ar
 }
 
 /* function: getinterface_ip
- * finds the first global IP of the given family for the given interface, or returns NULL.  caller frees pointer
+ * finds the first global non-privacy IP of the given family for the given interface, or returns NULL.  caller frees pointer
  * interface - interface to look for
  * family    - family
  */
@@ -116,6 +116,7 @@ union anyip *getinterface_ip(const char *interface, int family) {
   nl_cb_set(callbacks, NL_CB_VALID, NL_CB_CUSTOM, getaddr_cb, &targ);
   nl_cb_err(callbacks, NL_CB_CUSTOM, error_handler, &targ);
 
+  // sends message and waits for a response
   send_ifaddrmsg(RTM_GETADDR, NLM_F_REQUEST | NLM_F_ROOT, &ifa, callbacks);
 
   if(targ.foundip) {

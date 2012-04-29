@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2012 Daniel Drown <dan-android@drown.org>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -125,7 +125,7 @@ int if_route(const char *ifname, int family, const void *destination, int cidr, 
       retval = -ENOMEM;
       goto cleanup;
     }
-    
+
     if(nla_put(msg, RTAX_MTU, 4, &mtu) < 0) {
       retval = -ENOMEM;
       goto cleanup;

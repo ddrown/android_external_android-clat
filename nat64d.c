@@ -86,7 +86,7 @@ int tun_alloc(char *dev, int fd) {
 
   memset(&ifr, 0, sizeof(ifr));
 
-  ifr.ifr_flags = IFF_TUN; 
+  ifr.ifr_flags = IFF_TUN;
   if( *dev )
     strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 
@@ -113,7 +113,7 @@ void deconfigure_tun_ipv6(const char *device) {
 
 /* function: configure_tun_ipv6
  * configures the ipv6 route
- * note: steals a /128 out of the (assumed routed to us) /64
+ * note: routes a /128 out of the (assumed routed to us) /64 to the CLAT interface
  * device - the clat device name to configure
  */
 void configure_tun_ipv6(const char *device) {
@@ -201,7 +201,7 @@ void drop_root() {
   struct __user_cap_data_struct cap;
   header.version = _LINUX_CAPABILITY_VERSION;
   header.pid = 0;
-  cap.inheritable = 
+  cap.inheritable =
    cap.effective = cap.permitted = (1 << CAP_NET_ADMIN);
   capset(&header, &cap);
 }
@@ -297,7 +297,7 @@ int main() {
       logmsg(ANDROID_LOG_WARN,"main/read short: got %ld bytes", readlen);
       continue;
     }
-    
+
     flags = proto = 0;
     memcpy(&flags, packet, 2);
     memcpy(&proto, packet+2, 2);

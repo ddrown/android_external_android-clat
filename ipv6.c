@@ -66,7 +66,7 @@ void tcp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
     logmsg(ANDROID_LOG_ERROR,"tcp6_packet/(too small)");
     return;
   }
-  
+
   memcpy(&tcp, packet, sizeof(tcp));
 
   if(tcp.doff < 5) {
@@ -86,7 +86,7 @@ void tcp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
     options = NULL;
     options_size = 0;
   }
-  
+
   payload = packet + tcp.doff*4;
   payload_size = len - tcp.doff*4;
 
@@ -109,7 +109,7 @@ void udp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
     logmsg(ANDROID_LOG_ERROR,"udp6_packet/(too small)");
     return;
   }
-  
+
   memcpy(&udp, packet, sizeof(udp));
   payload = packet + sizeof(udp);
   payload_size = len - sizeof(udp);
@@ -137,7 +137,7 @@ void ipv6_packet(int fd, char *packet, ssize_t len) {
 
   next_header = packet + sizeof(header);
   len_left = len - sizeof(header);
-  
+
   if(header.ip6_nxt == IPPROTO_ICMPV6) {
     icmp6_packet(fd,next_header,len_left,&header);
   } else if(header.ip6_nxt == IPPROTO_TCP) {

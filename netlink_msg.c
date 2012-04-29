@@ -138,7 +138,7 @@ void send_netlink_msg(struct nl_msg *msg, struct nl_cb *callbacks) {
   nl_sk = nl_socket_alloc();
   if(!nl_sk)
     goto cleanup;
-  
+
   if((status = nl_connect(nl_sk, NETLINK_ROUTE)) != 0)
     goto cleanup;
 

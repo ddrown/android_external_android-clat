@@ -66,7 +66,7 @@ void tcp_packet(int fd, char *packet, ssize_t len, struct iphdr *ip) {
     logmsg(ANDROID_LOG_ERROR,"tcp_packet/(too small)");
     return;
   }
-  
+
   memcpy(&tcp, packet, sizeof(tcp));
 
   if(tcp.doff < 5) {
@@ -86,7 +86,7 @@ void tcp_packet(int fd, char *packet, ssize_t len, struct iphdr *ip) {
     options = NULL;
     options_size = 0;
   }
-  
+
   payload = packet + tcp.doff*4;
   payload_size = len - tcp.doff*4;
 
@@ -109,7 +109,7 @@ void udp_packet(int fd, char *packet, ssize_t len, const struct iphdr *ip) {
     logmsg(ANDROID_LOG_ERROR,"udp_packet/(too small)");
     return;
   }
-  
+
   memcpy(&udp, packet, sizeof(udp));
   payload = packet + sizeof(udp);
   payload_size = len - sizeof(udp);
