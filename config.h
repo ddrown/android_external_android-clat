@@ -28,6 +28,7 @@ struct clat_config {
   struct in_addr ipv4_local_subnet;
   struct in6_addr plat_subnet;
   char default_pdp_interface[PROP_VALUE_MAX];
+  char *plat_from_dns64_hostname;
 };
 
 extern struct clat_config config;

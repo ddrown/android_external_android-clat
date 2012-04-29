@@ -165,6 +165,10 @@ struct in6_addr *config_item_ip6(cnode *root, const char *item_name, const char 
  * frees the memory used by the global config variable
  */
 void free_config() {
+  if(config.plat_from_dns64_hostname) {
+    free(config.plat_from_dns64_hostname);
+    config.plat_from_dns64_hostname = NULL;
+  }
 }
 
 /* function: dns64_detection
@@ -177,7 +181,7 @@ void dns64_detection() {
   backoff_sleep = 1;
 
   while(1) {
-    status = plat_prefix("ipv4.google.com",&tmp_ptr);
+    status = plat_prefix(config.plat_from_dns64_hostname,&tmp_ptr);
     if(status > 0) {
       memcpy(&config.plat_subnet, &tmp_ptr, sizeof(struct in6_addr));
       return;
@@ -301,6 +305,8 @@ int read_config(const char *file) {
     memcpy(&config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
     free(tmp_ptr);
   } else {
+    if(!config.plat_from_dns64_hostname = config_str(root, "plat_from_dns64_hostname", "ipv4.google.com"))
+      goto failed;
     dns64_detection();
   }
 
