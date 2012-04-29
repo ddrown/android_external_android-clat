@@ -55,8 +55,7 @@ void fill_ip_header(struct iphdr *ip_targ, uint16_t other_len, uint8_t protocol,
   ip_targ->check = 0;
 
   ip_targ->saddr = old_header->ip6_src.s6_addr32[3];
-  host_addr = ntohl(old_header->ip6_dst.s6_addr32[3]) & 0xff;
-  ip_targ->daddr = config.ipv4_local_subnet.s_addr | htonl(host_addr);
+  ip_targ->daddr = config.ipv4_local_subnet.s_addr;
 
   ip_targ->check = ip_checksum(ip_targ,sizeof(struct iphdr));
 }
@@ -81,8 +80,6 @@ void fill_ip6_header(struct ip6_hdr *ip6, uint16_t other_len, uint8_t protocol, 
   host_addr = ntohl(old_header->saddr) & 0xff;
 
   ip6->ip6_src = config.ipv6_local_subnet;
-
-  ip6->ip6_src.s6_addr32[3] = config.ipv6_local_subnet.s6_addr32[3] | htonl(host_addr);
 
   ip6->ip6_dst = config.plat_subnet;
   ip6->ip6_dst.s6_addr32[3] = old_header->daddr;

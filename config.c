@@ -199,20 +199,15 @@ void dns64_detection() {
 
 /* function: config_generate_local_ipv6_subnet
  * generates the local ipv6 subnet when given the interface ip
- * requires config.ipv6_local_bits and config.ipv6_local_mask
- * interface_ip - in: interface ip, out: local ipv6 subnet
+ * requires config.ipv6_host_id
+ * interface_ip - in: interface ip, out: local ipv6 host address
  */
 void config_generate_local_ipv6_subnet(struct in6_addr *interface_ip) {
   int i;
 
-  for(i = 0; i < 4; i++) {
-    interface_ip->s6_addr32[i] =
-      interface_ip->s6_addr32[i] ^
-      (config.ipv6_local_bits.s6_addr32[i] & config.ipv6_local_mask.s6_addr32[i]);
+  for(i = 2; i < 4; i++) {
+    interface_ip->s6_addr32[i] = config.ipv6_host_id.s6_addr32[i];
   }
-
-  // clear out the last octet to make space for the ipv4 last octet
-  interface_ip->s6_addr32[3] &= htonl(0xffffff00);
 }
 
 /* function: subnet_from_interface
@@ -222,20 +217,14 @@ void config_generate_local_ipv6_subnet(struct in6_addr *interface_ip) {
  */
 int subnet_from_interface(cnode *root, const char *interface) {
   union anyip *interface_ip;
-  struct in6_addr *mask, *bits;
+  struct in6_addr *host_id;
 
-  if(!(mask = config_item_ip6(root, "ipv6_local_mask", "::ffff:0:0:0"))) {
+  if(!(host_id = config_item_ip6(root, "ipv6_host_id", "::200:5E10:0:0"))) {
     return 0;
   }
-  if(!(bits = config_item_ip6(root, "ipv6_local_bits", "::abcd:0:0:0"))) {
-    free(mask);
-    return 0;
-  }
-  memcpy(&config.ipv6_local_mask, mask, sizeof(struct in6_addr));
-  memcpy(&config.ipv6_local_bits, bits, sizeof(struct in6_addr));
-  free(mask);
-  free(bits);
-  mask = bits = NULL;
+  memcpy(&config.ipv6_host_id, host_id, sizeof(struct in6_addr));
+  free(host_id);
+  host_id = NULL;
 
   interface_ip = getinterface_ip(interface, AF_INET6);
   if(!interface_ip) {
@@ -300,12 +289,12 @@ int read_config(const char *file) {
   if(!subnet_from_interface(root,config.default_pdp_interface))
     goto failed;
 
-  if(!(tmp_ptr = config_item_ip(root, "ipv4_local_subnet", "10.255.255.0")))
+  if(!(tmp_ptr = config_item_ip(root, "ipv4_local_subnet", "192.168.255.1")))
     goto failed;
   memcpy(&config.ipv4_local_subnet, tmp_ptr, sizeof(struct in_addr));
   free(tmp_ptr);
 
-  tmp_ptr = (void *)config_str(root, "plat_from_dns64", "no");
+  tmp_ptr = (void *)config_str(root, "plat_from_dns64", "yes");
   if(!tmp_ptr || strcmp(tmp_ptr, "no") == 0) {
     if(!(tmp_ptr = config_item_ip6(root, "plat_subnet", NULL)))
       goto failed;

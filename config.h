@@ -24,8 +24,7 @@
 struct clat_config {
   int16_t mtu, ipv4mtu;
   struct in6_addr ipv6_local_subnet;
-  struct in6_addr ipv6_local_mask;
-  struct in6_addr ipv6_local_bits;
+  struct in6_addr ipv6_host_id;
   struct in_addr ipv4_local_subnet;
   struct in6_addr plat_subnet;
   char default_pdp_interface[PROP_VALUE_MAX];

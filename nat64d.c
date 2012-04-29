@@ -103,14 +103,9 @@ int tun_alloc(char *dev, int fd) {
  * device - the clat device name
  */
 void deconfigure_tun_ipv6(const char *device) {
-  struct in6_addr local_nat64_prefix_6;
   int status;
 
-  local_nat64_prefix_6 = config.ipv6_local_subnet;
-
-  // route the ipv6 address that maps to the base ipv4 address
-  local_nat64_prefix_6.s6_addr32[3] |= htonl(0x01);
-  if((status = if_route(device, AF_INET6, &local_nat64_prefix_6, 128, NULL, 1, 0, ROUTE_DELETE)) < 0) {
+  if((status = if_route(device, AF_INET6, &config.ipv6_local_subnet, 128, NULL, 1, 0, ROUTE_DELETE)) < 0) {
     logmsg(ANDROID_LOG_FATAL,"deconfigure_tun_ipv6/if_route(6) failed: %s",strerror(-status));
     exit(1);
   }
@@ -125,11 +120,7 @@ void configure_tun_ipv6(const char *device) {
   struct in6_addr local_nat64_prefix_6;
   int status;
 
-  local_nat64_prefix_6 = config.ipv6_local_subnet;
-
-  // route the ipv6 address that maps to the base ipv4 address
-  local_nat64_prefix_6.s6_addr32[3] |= htonl(0x01);
-  if((status = if_route(device, AF_INET6, &local_nat64_prefix_6, 128, NULL, 1, 0, ROUTE_CREATE)) < 0) {
+  if((status = if_route(device, AF_INET6, &config.ipv6_local_subnet, 128, NULL, 1, 0, ROUTE_CREATE)) < 0) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ipv6/if_route(6) failed: %s",strerror(-status));
     exit(1);
   }
@@ -171,14 +162,8 @@ void interface_poll() {
  * device - the clat device name to configure
  */
 void configure_tun_ip(const char *device) {
-  struct in_addr local_nat64_prefix_4, local_nat64_prefix_4_brd, default_4;
+  struct in_addr default_4;
   int status;
-
-  local_nat64_prefix_4 = config.ipv4_local_subnet;
-  local_nat64_prefix_4.s_addr |= htonl(1);
-
-  local_nat64_prefix_4_brd = config.ipv4_local_subnet;
-  local_nat64_prefix_4_brd.s_addr |= htonl(255);
 
   default_4.s_addr = INADDR_ANY;
 
@@ -186,7 +171,7 @@ void configure_tun_ip(const char *device) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ip/if_up failed: %s",strerror(-status));
     exit(1);
   }
-  if((status = add_address(device, AF_INET, &local_nat64_prefix_4, 24, &local_nat64_prefix_4_brd)) < 0) {
+  if((status = add_address(device, AF_INET, &config.ipv4_local_subnet, 32, &config.ipv4_local_subnet)) < 0) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ip/if_address(4) failed: %s",strerror(-status));
     exit(1);
   }
