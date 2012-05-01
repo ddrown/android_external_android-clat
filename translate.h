@@ -18,13 +18,13 @@
 #ifndef __TRANSLATE_H__
 #define __TRANSLATE_H__
 
-void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, const char *payload, ssize_t payload_size);
-void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *icmp6, const char *payload, ssize_t payload_size);
+void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, const char *payload, size_t payload_size);
+void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *icmp6, const char *payload, size_t payload_size);
 
-void udp_to_udp6(int fd, const struct iphdr *ip, const struct udphdr *udp, const char *payload, ssize_t payload_size);
-void udp6_to_udp(int fd, const struct ip6_hdr *ip6, const struct udphdr *udp, const char *payload, ssize_t payload_size);
+void udp_to_udp6(int fd, const struct iphdr *ip, const struct udphdr *udp, const char *payload, size_t payload_size);
+void udp6_to_udp(int fd, const struct ip6_hdr *ip6, const struct udphdr *udp, const char *payload, size_t payload_size);
 
-void tcp_to_tcp6(int fd,const struct iphdr *ip, const struct tcphdr *tcp, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size);
-void tcp6_to_tcp(int fd,const struct ip6_hdr *ip6, const struct tcphdr *tcp, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size);
+void tcp_to_tcp6(int fd,const struct iphdr *ip, const struct tcphdr *tcp, const char *payload, size_t payload_size, const char *options, size_t options_size);
+void tcp6_to_tcp(int fd,const struct ip6_hdr *ip6, const struct tcphdr *tcp, const char *payload, size_t payload_size, const char *options, size_t options_size);
 
 #endif /* __TRANSLATE_H__ */

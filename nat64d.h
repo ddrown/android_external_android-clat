@@ -18,7 +18,9 @@
 #ifndef __NAT64D_H__
 #define __NAT64D_H__
 
+#include <linux/if_tun.h>
+
 #define MAXMTU 1500
-#define PACKETLEN MAXMTU+2+2
+#define PACKETLEN MAXMTU+sizeof(struct tun_pi)
 
 #endif /* __NAT64D_H__ */

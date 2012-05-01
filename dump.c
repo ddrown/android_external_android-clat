@@ -103,7 +103,7 @@ void dump_icmp6(struct icmp6_hdr *icmp6) {
 }
 
 /* print ipv4/udp header */
-void dump_udp(const struct udphdr *udp, const struct iphdr *ip, const char *payload, ssize_t payload_size) {
+void dump_udp(const struct udphdr *udp, const struct iphdr *ip, const char *payload, size_t payload_size) {
   uint32_t temp_checksum;
   uint16_t my_checksum;
 
@@ -120,7 +120,7 @@ void dump_udp(const struct udphdr *udp, const struct iphdr *ip, const char *payl
 }
 
 /* print ipv6/udp header */
-void dump_udp6(const struct udphdr *udp, const struct ip6_hdr *ip6, const char *payload, ssize_t payload_size) {
+void dump_udp6(const struct udphdr *udp, const struct ip6_hdr *ip6, const char *payload, size_t payload_size) {
   uint32_t temp_checksum;
   uint16_t my_checksum;
 
@@ -137,7 +137,7 @@ void dump_udp6(const struct udphdr *udp, const struct ip6_hdr *ip6, const char *
 }
 
 /* print ipv4/tcp header */
-void dump_tcp(const struct tcphdr *tcp, const struct iphdr *ip, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size) {
+void dump_tcp(const struct tcphdr *tcp, const struct iphdr *ip, const char *payload, size_t payload_size, const char *options, size_t options_size) {
   uint32_t temp_checksum;
   uint16_t my_checksum;
 
@@ -169,7 +169,7 @@ void dump_tcp(const struct tcphdr *tcp, const struct iphdr *ip, const char *payl
   printf("urgent = %x\n",tcp->urg_ptr);
 
   if(options) {
-    int i;
+    size_t i;
 
     printf("options: ");
     for(i=0; i<options_size; i++) {
@@ -180,7 +180,7 @@ void dump_tcp(const struct tcphdr *tcp, const struct iphdr *ip, const char *payl
 }
 
 /* print ipv6/tcp header */
-void dump_tcp6(const struct tcphdr *tcp, const struct ip6_hdr *ip6, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size) {
+void dump_tcp6(const struct tcphdr *tcp, const struct ip6_hdr *ip6, const char *payload, size_t payload_size, const char *options, size_t options_size) {
   uint32_t temp_checksum;
   uint16_t my_checksum;
 
@@ -212,7 +212,7 @@ void dump_tcp6(const struct tcphdr *tcp, const struct ip6_hdr *ip6, const char *
   printf("urgent = %x\n",tcp->urg_ptr);
 
   if(options) {
-    int i;
+    size_t i;
 
     printf("options: ");
     for(i=0; i<options_size; i++) {

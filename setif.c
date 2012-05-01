@@ -36,7 +36,7 @@
  */
 int add_address(const char *ifname, int family, const void *address, int prefixlen, const void *broadcast) {
   int retval = -1;
-  ssize_t addr_size;
+  size_t addr_size;
   struct ifaddrmsg ifa;
   struct nl_msg *msg = NULL;
   struct nl_cb *callbacks = NULL;
@@ -60,7 +60,7 @@ int add_address(const char *ifname, int family, const void *address, int prefixl
   }
   ifa.ifa_family = family;
   ifa.ifa_prefixlen = prefixlen;
-  ifa.ifa_scope = 0;
+  ifa.ifa_scope = RT_SCOPE_UNIVERSE;
 
   msg = nlmsg_alloc_ifaddr(RTM_NEWADDR, NLM_F_ACK | NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE, &ifa);
   if(!msg) {

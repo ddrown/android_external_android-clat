@@ -32,7 +32,7 @@
  * returns the size of the address structure for the given family, or 0 on error
  * family - AF_INET or AF_INET6
  */
-ssize_t inet_family_size(int family) {
+size_t inet_family_size(int family) {
   if(family == AF_INET) {
     return sizeof(struct in_addr);
   } else if(family == AF_INET6) {

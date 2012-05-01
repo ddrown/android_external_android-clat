@@ -307,7 +307,7 @@ int read_config(const char *file) {
     memcpy(&config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
     free(tmp_ptr);
   } else {
-    if(!config.plat_from_dns64_hostname = config_str(root, "plat_from_dns64_hostname", "ipv4.google.com"))
+    if(!(config.plat_from_dns64_hostname = config_item_str(root, "plat_from_dns64_hostname", "ipv4.google.com")))
       goto failed;
     dns64_detection();
   }

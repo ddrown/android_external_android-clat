@@ -28,10 +28,10 @@
  * len    - size of ip payload
  * ip6    - ip6 header
  */
-void icmp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
+void icmp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
   struct icmp6_hdr icmp6;
   char *payload;
-  ssize_t payload_size;
+  size_t payload_size;
 
   if(len < sizeof(icmp6)) {
     logmsg(ANDROID_LOG_ERROR,"icmp6_packet/(too small)");
@@ -56,11 +56,11 @@ void icmp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
  * len    - size of ip payload
  * ip6    - ip6 header
  */
-void tcp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
+void tcp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
   struct tcphdr tcp;
   char *payload;
   char *options;
-  ssize_t payload_size, options_size;
+  size_t payload_size, options_size;
 
   if(len < sizeof(tcp)) {
     logmsg(ANDROID_LOG_ERROR,"tcp6_packet/(too small)");
@@ -74,7 +74,7 @@ void tcp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
     return;
   }
 
-  if(tcp.doff*4 > len) {
+  if((size_t)tcp.doff*4 > len) {
     logmsg(ANDROID_LOG_ERROR,"tcp6_packet/tcp header length set too large: %x",tcp.doff);
     return;
   }
@@ -100,10 +100,10 @@ void tcp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
  * len    - size of ip payload
  * ip6    - ip6 header
  */
-void udp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
+void udp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
   struct udphdr udp;
   char *payload;
-  ssize_t payload_size;
+  size_t payload_size;
 
   if(len < sizeof(udp)) {
     logmsg(ANDROID_LOG_ERROR,"udp6_packet/(too small)");
@@ -123,10 +123,10 @@ void udp6_packet(int fd, char *packet, ssize_t len, struct ip6_hdr *ip6) {
  * packet - packet data
  * len    - size of packet
  */
-void ipv6_packet(int fd, char *packet, ssize_t len) {
+void ipv6_packet(int fd, char *packet, size_t len) {
   struct ip6_hdr header;
   char *next_header;
-  ssize_t len_left;
+  size_t len_left;
 
   if(len < sizeof(header)) {
     logmsg(ANDROID_LOG_ERROR,"ipv6_packet/too short for an ip6 header");

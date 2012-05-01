@@ -213,7 +213,7 @@ int main() {
   int fd, starting;
   char packet[PACKETLEN];
   char device[50] = DEVICENAME;
-  ssize_t readlen;
+  size_t readlen;
   time_t startup, last_forward_write, last_interface_poll;
 
   // make note of the time we started

@@ -28,10 +28,10 @@
  * len    - size of ip payload
  * ip     - ip header
  */
-void icmp_packet(int fd, char *packet, ssize_t len, struct iphdr *ip) {
+void icmp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
   struct icmphdr icmp;
   char *payload;
-  ssize_t payload_size;
+  size_t payload_size;
 
   if(len < sizeof(icmp)) {
     logmsg(ANDROID_LOG_ERROR,"icmp_packet/(too small)");
@@ -56,11 +56,11 @@ void icmp_packet(int fd, char *packet, ssize_t len, struct iphdr *ip) {
  * len    - size of ip payload
  * ip     - ip header
  */
-void tcp_packet(int fd, char *packet, ssize_t len, struct iphdr *ip) {
+void tcp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
   struct tcphdr tcp;
   char *payload;
   char *options;
-  ssize_t payload_size, options_size;
+  size_t payload_size, options_size;
 
   if(len < sizeof(tcp)) {
     logmsg(ANDROID_LOG_ERROR,"tcp_packet/(too small)");
@@ -74,7 +74,7 @@ void tcp_packet(int fd, char *packet, ssize_t len, struct iphdr *ip) {
     return;
   }
 
-  if(tcp.doff*4 > len) {
+  if((size_t)tcp.doff*4 > len) {
     logmsg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set too large: %x",tcp.doff);
     return;
   }
@@ -100,10 +100,10 @@ void tcp_packet(int fd, char *packet, ssize_t len, struct iphdr *ip) {
  * len    - size of ip payload
  * ip     - ip header
  */
-void udp_packet(int fd, char *packet, ssize_t len, const struct iphdr *ip) {
+void udp_packet(int fd, char *packet, size_t len, const struct iphdr *ip) {
   struct udphdr udp;
   char *payload;
-  ssize_t payload_size;
+  size_t payload_size;
 
   if(len < sizeof(udp)) {
     logmsg(ANDROID_LOG_ERROR,"udp_packet/(too small)");
@@ -123,11 +123,11 @@ void udp_packet(int fd, char *packet, ssize_t len, const struct iphdr *ip) {
  * packet - packet data
  * len    - size of packet
  */
-void ip_packet(int fd, char *packet, ssize_t len) {
+void ip_packet(int fd, char *packet, size_t len) {
   struct iphdr header;
   uint16_t frag_flags;
   char *next_header;
-  ssize_t len_left;
+  size_t len_left;
 
   if(len < sizeof(header)) {
     logmsg(ANDROID_LOG_ERROR,"ip_packet/too short for an ip header");
@@ -147,7 +147,7 @@ void ip_packet(int fd, char *packet, ssize_t len) {
     return;
   }
 
-  if(header.ihl*4 > len) {
+  if((size_t)header.ihl*4 > len) {
     logmsg(ANDROID_LOG_ERROR,"ip_packet/ip header length set too large: %x",header.ihl);
     return;
   }

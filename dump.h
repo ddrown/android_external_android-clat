@@ -20,12 +20,12 @@
 
 void dump_ip(struct iphdr *header);
 void dump_icmp(struct icmphdr *icmp);
-void dump_udp(const struct udphdr *udp, const struct iphdr *ip, const char *payload, ssize_t payload_size);
-void dump_tcp(const struct tcphdr *tcp, const struct iphdr *ip, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size);
+void dump_udp(const struct udphdr *udp, const struct iphdr *ip, const char *payload, size_t payload_size);
+void dump_tcp(const struct tcphdr *tcp, const struct iphdr *ip, const char *payload, size_t payload_size, const char *options, size_t options_size);
 
 void dump_ip6(struct ip6_hdr *header);
 void dump_icmp6(struct icmp6_hdr *icmp6);
-void dump_udp6(const struct udphdr *udp, const struct ip6_hdr *ip6, const char *payload, ssize_t payload_size);
-void dump_tcp6(const struct tcphdr *tcp, const struct ip6_hdr *ip6, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size);
+void dump_udp6(const struct udphdr *udp, const struct ip6_hdr *ip6, const char *payload, size_t payload_size);
+void dump_tcp6(const struct tcphdr *tcp, const struct ip6_hdr *ip6, const char *payload, size_t payload_size, const char *options, size_t options_size);
 
 #endif /* __DUMP_H__ */

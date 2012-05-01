@@ -93,7 +93,7 @@ void fill_ip6_header(struct ip6_hdr *ip6, uint16_t other_len, uint8_t protocol, 
  * payload      - icmp payload
  * payload_size - size of payload
  */
-void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, const char *payload, ssize_t payload_size) {
+void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, const char *payload, size_t payload_size) {
   struct ip6_hdr ip6_targ;
   struct icmp6_hdr icmp6_targ;
   struct iovec io_targ[4];
@@ -136,7 +136,7 @@ void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, c
  * payload      - icmp6 payload
  * payload_size - size of payload
  */
-void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *icmp6, const char *payload, ssize_t payload_size) {
+void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *icmp6, const char *payload, size_t payload_size) {
   struct iphdr ip_targ;
   struct icmphdr icmp_targ;
   struct iovec io_targ[4];
@@ -183,7 +183,7 @@ void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *ic
  *     array position 3 - empty (will be payload)
  * checksum     - partial checksum covering ipv4/ipv6 header
  */
-void udp_translate(int fd, const struct udphdr *udp, const char *payload, ssize_t payload_size, struct iovec *io_targ, uint32_t checksum) {
+void udp_translate(int fd, const struct udphdr *udp, const char *payload, size_t payload_size, struct iovec *io_targ, uint32_t checksum) {
   struct udphdr udp_targ;
 
   memcpy(&udp_targ, udp, sizeof(udp_targ));
@@ -209,7 +209,7 @@ void udp_translate(int fd, const struct udphdr *udp, const char *payload, ssize_
  * payload      - udp payload
  * payload_size - size of payload
  */
-void udp_to_udp6(int fd, const struct iphdr *ip, const struct udphdr *udp, const char *payload, ssize_t payload_size) {
+void udp_to_udp6(int fd, const struct iphdr *ip, const struct udphdr *udp, const char *payload, size_t payload_size) {
   struct ip6_hdr ip6_targ;
   struct iovec io_targ[4];
   struct tun_pi tun_header;
@@ -237,7 +237,7 @@ void udp_to_udp6(int fd, const struct iphdr *ip, const struct udphdr *udp, const
  * payload      - udp payload
  * payload_size - size of payload
  */
-void udp6_to_udp(int fd, const struct ip6_hdr *ip6, const struct udphdr *udp, const char *payload, ssize_t payload_size) {
+void udp6_to_udp(int fd, const struct ip6_hdr *ip6, const struct udphdr *udp, const char *payload, size_t payload_size) {
   struct iphdr ip_targ;
   struct iovec io_targ[4];
   struct tun_pi tun_header;
@@ -277,7 +277,7 @@ void udp6_to_udp(int fd, const struct ip6_hdr *ip6, const struct udphdr *udp, co
  * TODO: dealing with options
  * TODO: hosts without pmtu discovery
  */
-void tcp_translate(int fd, const struct tcphdr *tcp, const char *payload, ssize_t payload_size, struct iovec *io_targ, uint32_t checksum, const char *options, ssize_t options_size) {
+void tcp_translate(int fd, const struct tcphdr *tcp, const char *payload, size_t payload_size, struct iovec *io_targ, uint32_t checksum, const char *options, size_t options_size) {
   struct tcphdr tcp_targ;
   int targ_index = 2;
 
@@ -318,7 +318,7 @@ void tcp_translate(int fd, const struct tcphdr *tcp, const char *payload, ssize_
  * options      - tcp options
  * options_size - size of options
  */
-void tcp_to_tcp6(int fd,const struct iphdr *ip, const struct tcphdr *tcp, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size) {
+void tcp_to_tcp6(int fd,const struct iphdr *ip, const struct tcphdr *tcp, const char *payload, size_t payload_size, const char *options, size_t options_size) {
   struct ip6_hdr ip6_targ;
   struct iovec io_targ[5];
   struct tun_pi tun_header;
@@ -348,7 +348,7 @@ void tcp_to_tcp6(int fd,const struct iphdr *ip, const struct tcphdr *tcp, const 
  * options      - tcp options
  * options_size - size of options
  */
-void tcp6_to_tcp(int fd,const struct ip6_hdr *ip6, const struct tcphdr *tcp, const char *payload, ssize_t payload_size, const char *options, ssize_t options_size) {
+void tcp6_to_tcp(int fd,const struct ip6_hdr *ip6, const struct tcphdr *tcp, const char *payload, size_t payload_size, const char *options, size_t options_size) {
   struct iphdr ip_targ;
   struct iovec io_targ[5];
   struct tun_pi tun_header;

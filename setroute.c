@@ -35,19 +35,19 @@
  * ifname      - name of the outbound interface
  * family      - AF_INET or AF_INET6
  * destination - pointer to a struct in_addr or in6_addr for the destination network
- * cidr        - bitlength of the network address (example: 24 for AF_INET's 255.255.255.0)
+ * prefixlen   - bitlength of the network address (example: 24 for AF_INET's 255.255.255.0)
  * gateway     - pointer to a struct in_addr or in6_addr for the gateway to use or NULL for an interface route
  * metric      - route metric (lower is better)
  * mtu         - route-specific mtu or 0 for the interface mtu
  * change_type - ROUTE_DELETE, ROUTE_REPLACE, or ROUTE_CREATE
  */
-int if_route(const char *ifname, int family, const void *destination, int cidr, const void *gateway, int metric, int mtu, int change_type) {
+int if_route(const char *ifname, int family, const void *destination, int prefixlen, const void *gateway, int metric, int mtu, int change_type) {
   int retval = -1;
   struct nl_msg *msg = NULL;
   struct nl_cb *callbacks = NULL;
   struct rtmsg rt;
   uint16_t type, flags;
-  ssize_t addr_size;
+  size_t addr_size;
   uint32_t ifindex;
 
   addr_size = inet_family_size(family);
@@ -70,7 +70,7 @@ int if_route(const char *ifname, int family, const void *destination, int cidr, 
   memset(&rt, 0, sizeof(rt));
   rt.rtm_family = family;
   rt.rtm_table = RT_TABLE_MAIN;
-  rt.rtm_dst_len = cidr;
+  rt.rtm_dst_len = prefixlen;
   if(change_type == ROUTE_DELETE) {
     rt.rtm_scope = RT_SCOPE_NOWHERE;
   } else {

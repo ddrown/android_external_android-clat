@@ -18,7 +18,7 @@
 #ifndef __NETLINK_IFMSG_H__
 #define __NETLINK_IFMSG_H__
 
-ssize_t inet_family_size(int family);
+size_t inet_family_size(int family);
 struct nl_msg *nlmsg_alloc_ifaddr(uint16_t type, uint16_t flags, struct ifaddrmsg *ifa);
 struct nl_msg *nlmsg_alloc_ifinfo(uint16_t type, uint16_t flags, struct ifinfomsg *ifi);
 struct nl_msg *nlmsg_alloc_rtmsg(uint16_t type, uint16_t flags, struct rtmsg *rt);

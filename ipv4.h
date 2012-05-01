@@ -18,6 +18,6 @@
 #ifndef __IPV4_H__
 #define __IPV4_H__
 
-void ip_packet(int fd, char *packet, ssize_t len);
+void ip_packet(int fd, char *packet, size_t len);
 
 #endif /* __IPV4_H__ */
