@@ -30,7 +30,7 @@
 #include "dns64.h"
 #include "logging.h"
 #include "getaddr.h"
-#include "nat64d.h"
+#include "clatd.h"
 #include "setroute.h"
 
 struct clat_config config;

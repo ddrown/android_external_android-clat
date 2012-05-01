@@ -17,7 +17,7 @@
  */
 #include "system_headers.h"
 #include "checksum.h"
-#include "nat64d.h"
+#include "clatd.h"
 #include "config.h"
 
 /* function: fill_tun_header

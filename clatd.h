@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * nat64d.h - main system definitions
+ * clatd.h - main system definitions
  */
-#ifndef __NAT64D_H__
-#define __NAT64D_H__
+#ifndef __CLATD_H__
+#define __CLATD_H__
 
 #include <linux/if_tun.h>
 
 #define MAXMTU 1500
 #define PACKETLEN MAXMTU+sizeof(struct tun_pi)
 
-#endif /* __NAT64D_H__ */
+#endif /* __CLATD_H__ */

@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * nat64d.c - tun interface setup and main event loop
+ * clatd.c - tun interface setup and main event loop
  */
 #include "system_headers.h"
 #include "ipv4.h"
 #include "ipv6.h"
-#include "nat64d.h"
+#include "clatd.h"
 #include "config.h"
 #include "logging.h"
 #include "setif.h"
