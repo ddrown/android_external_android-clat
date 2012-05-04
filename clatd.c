@@ -25,6 +25,7 @@
 #include "setroute.h"
 #include "mtu.h"
 #include "getaddr.h"
+#include "dump.h"
 
 #include <linux/capability.h>
 #include <linux/prctl.h>
@@ -212,7 +213,7 @@ void drop_root() {
 int main() {
   int fd, starting;
   char packet[PACKETLEN];
-  char device[50] = DEVICENAME;
+  char device[IFNAMSIZ] = DEVICENAME;
   size_t readlen;
   time_t startup, last_forward_write, last_interface_poll;
 
@@ -277,8 +278,9 @@ int main() {
   drop_root();
 
   while((readlen = read(fd,packet,PACKETLEN)) > 0) {
-    uint16_t flags, proto;
+    struct tun_pi tun_header;
     time_t now = time(NULL);
+    size_t header_size = sizeof(struct tun_pi);
 
     if(starting) {
       // If we're starting up, make sure ipv6 forwarding is turned on
@@ -288,40 +290,44 @@ int main() {
         set_forwarding(forwarding_fd,"1\n");
         last_forward_write = now;
       }
-      if(startup < (now - 5)) {
+      if(startup < (now - STARTUP_TIME)) {
         starting = 0;
       }
     }
 
-    if(readlen < 4) {
+    if(readlen < header_size) {
       logmsg(ANDROID_LOG_WARN,"main/read short: got %ld bytes", readlen);
       continue;
     }
 
-    flags = proto = 0;
-    memcpy(&flags, packet, 2);
-    memcpy(&proto, packet+2, 2);
+    memcpy(&tun_header, packet, header_size);
 
-    proto = ntohs(proto);
-    flags = ntohs(flags);
+    tun_header.proto = ntohs(tun_header.proto);
 
-    if(proto == ETH_P_IP) {
-      ip_packet(fd,packet+4,readlen-4);
-    } else if(proto == ETH_P_IPV6) {
-      ipv6_packet(fd,packet+4,readlen-4);
-    } else if(proto == 0) {
+    if(tun_header.flags != 0) {
+      logmsg(ANDROID_LOG_WARN,"main/flags = %d", tun_header.flags);
+    }
+
+    if(tun_header.proto == ETH_P_IP) {
+      ip_packet(fd,packet+header_size,readlen-header_size);
+    } else if(tun_header.proto == ETH_P_IPV6) {
+      ipv6_packet(fd,packet+header_size,readlen-header_size);
+    } else if(tun_header.proto == 0) {
+      logcat_hexdump("proto/0",packet,readlen);
       // ignore proto 0
     } else {
-      logmsg(ANDROID_LOG_WARN,"main/unknown packet type = %x",proto);
+      logmsg(ANDROID_LOG_WARN,"main/unknown packet type = %x",tun_header.proto);
     }
 
     memset(packet, 0, PACKETLEN);
 
-    if(last_interface_poll < (now - 30)) {
+    if(last_interface_poll < (now - INTERFACE_ADDRESS_POLL_FREQUENCY)) {
       interface_poll();
       last_interface_poll = now;
     }
   }
+
+  // loop exits if someone sets the tun interface down manually
 
   set_forwarding(forwarding_fd,"0\n");
 

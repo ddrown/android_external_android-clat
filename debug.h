@@ -13,18 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * clatd.h - main system definitions
+ * debug.h - debug settings
  */
-#ifndef __CLATD_H__
-#define __CLATD_H__
+#ifndef __DEBUG_H__
+#define __DEBUG_H__
 
-#include <linux/if_tun.h>
+// set to 1 to enable debug logging
+#define CLAT_DEBUG 0
 
-#define MAXMTU 1500
-#define PACKETLEN MAXMTU+sizeof(struct tun_pi)
-// STARTUP_TIME in seconds
-#define STARTUP_TIME 5
-// INTERFACE_ADDRESS_POLL_FREQUENCY in seconds
-#define INTERFACE_ADDRESS_POLL_FREQUENCY 30
-
-#endif /* __CLATD_H__ */
+#endif /* __DEBUG_H__ */

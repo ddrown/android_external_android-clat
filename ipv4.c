@@ -20,6 +20,7 @@
 #include "checksum.h"
 #include "ipv4.h"
 #include "logging.h"
+#include "debug.h"
 
 /* function: icmp_packet
  * takes an icmp packet and sets it up for translation
@@ -34,7 +35,9 @@ void icmp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
   size_t payload_size;
 
   if(len < sizeof(icmp)) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"icmp_packet/(too small)");
+#endif
     return;
   }
 
@@ -42,11 +45,7 @@ void icmp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
   payload = packet + sizeof(icmp);
   payload_size = len - sizeof(icmp);
 
-  if(icmp.type == ICMP_ECHO || icmp.type == ICMP_ECHOREPLY) {
-    icmp_to_icmp6(fd,ip,&icmp,payload,payload_size);
-  } else {
-/*    logmsg(ANDROID_LOG_WARN,"icmp_packet/unhandled icmp type: %x",icmp.type); */
-  }
+  icmp_to_icmp6(fd,ip,&icmp,payload,payload_size);
 }
 
 /* function: tcp_packet
@@ -63,19 +62,25 @@ void tcp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
   size_t payload_size, options_size;
 
   if(len < sizeof(tcp)) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"tcp_packet/(too small)");
+#endif
     return;
   }
 
   memcpy(&tcp, packet, sizeof(tcp));
 
   if(tcp.doff < 5) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set to less than 5: %x",tcp.doff);
+#endif
     return;
   }
 
   if((size_t)tcp.doff*4 > len) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set too large: %x",tcp.doff);
+#endif
     return;
   }
 
@@ -106,7 +111,9 @@ void udp_packet(int fd, char *packet, size_t len, const struct iphdr *ip) {
   size_t payload_size;
 
   if(len < sizeof(udp)) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"udp_packet/(too small)");
+#endif
     return;
   }
 
@@ -130,32 +137,47 @@ void ip_packet(int fd, char *packet, size_t len) {
   size_t len_left;
 
   if(len < sizeof(header)) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"ip_packet/too short for an ip header");
+#endif
     return;
   }
 
   memcpy(&header, packet, sizeof(header));
 
   frag_flags = ntohs(header.frag_off);
-  if(frag_flags & IP_MF) {
+  if(frag_flags & IP_MF) { // this could theoretically be supported, but isn't
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"ip_packet/more fragments set, dropping");
+#endif
     return;
   }
 
   if(header.ihl < 5) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"ip_packet/ip header length set to less than 5: %x",header.ihl);
+#endif
     return;
   }
 
-  if((size_t)header.ihl*4 > len) {
+  if((size_t)header.ihl*4 > len) { // ip header length larger than entire packet
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"ip_packet/ip header length set too large: %x",header.ihl);
+#endif
     return;
   }
 
   if(header.version != 4) {
+#if CLAT_DEBUG
     logmsg(ANDROID_LOG_ERROR,"ip_packet/ip header version not 4: %x",header.version);
+#endif
     return;
   }
+
+  /* rfc6145 - If any IPv4 options are present in the IPv4 packet, they MUST be
+   * ignored and the packet translated normally; there is no attempt to
+   * translate the options.
+   */
 
   next_header = packet + header.ihl*4;
   len_left = len - header.ihl*4;
@@ -167,6 +189,9 @@ void ip_packet(int fd, char *packet, size_t len) {
   } else if(header.protocol == IPPROTO_UDP) {
     udp_packet(fd,next_header,len_left,&header);
   } else {
+#if CLAT_DEBUG
+    logcat_hexdump("ipv4/protocol", packet, len);
     logmsg(ANDROID_LOG_ERROR,"ip_packet/unknown protocol: %x",header.protocol);
+#endif
   }
 }

@@ -19,6 +19,8 @@
 #include "checksum.h"
 #include "clatd.h"
 #include "config.h"
+#include "logging.h"
+#include "debug.h"
 
 /* function: fill_tun_header
  * fill in the header for the tun fd
@@ -100,6 +102,13 @@ void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, c
   struct tun_pi tun_header;
   uint32_t checksum_temp;
 
+  if(icmp->type != ICMP_ECHO && icmp->type != ICMP_ECHOREPLY) {
+#if CLAT_DEBUG
+    logmsg(ANDROID_LOG_WARN,"icmp_to_icmp6/unhandled icmp type: 0x%x",icmp->type);
+#endif
+    return;
+  }
+
   fill_tun_header(&tun_header,ETH_P_IPV6);
 
   fill_ip6_header(&ip6_targ,payload_size + sizeof(icmp6_targ),IPPROTO_ICMPV6,ip);
@@ -142,6 +151,13 @@ void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *ic
   struct iovec io_targ[4];
   struct tun_pi tun_header;
   uint32_t temp_icmp_checksum;
+
+  if((icmp6->icmp6_type != ICMP6_ECHO_REQUEST) && (icmp6->icmp6_type != ICMP6_ECHO_REPLY)) {
+#if CLAT_DEBUG
+    logmsg(ANDROID_LOG_WARN,"icmp6_to_icmp/unhandled icmp6 type: 0x%x",icmp6->icmp6_type);
+#endif
+    return;
+  }
 
   memset(&icmp_targ, 0, sizeof(icmp_targ));
 
