@@ -25,23 +25,29 @@
 /* function: fill_tun_header
  * fill in the header for the tun fd
  * tun_header - tunnel header, already allocated
- * proto      - protocol (ipv4/ipv6)
+ * proto      - ethernet protocol id: ETH_P_IP(ipv4) or ETH_P_IPV6(ipv6)
  */
 void fill_tun_header(struct tun_pi *tun_header, uint16_t proto) {
-  memset(tun_header, 0, sizeof(struct tun_pi));
-
   tun_header->flags = 0;
   tun_header->proto = htons(proto);
 }
 
+/* function: ipv6_src_to_ipv4_src
+ * return the corresponding ipv4 address for the given ipv6 address
+ * sourceaddr - ipv6 source address
+ */
+uint32_t ipv6_src_to_ipv4_src(const struct in6_addr *sourceaddr) {
+  return sourceaddr->s6_addr32[3];
+}
+
 /* function: fill_ip_header
  * generating an ipv4 header from an ipv6 header (called by the layer 4 protocol-specific functions)
- * ip_targ    - (ipv4) target packet header, source addr: original ipv4 addr, dest addr: local subnet addr
- * other_len  - length of other data inside packet
- * protocol   - protocol number (tcp, udp, etc)
- * old_header - (ipv6) source packet header, source addr: nat64 prefix, dest addr: local subnet prefix
+ * ip_targ     - (ipv4) target packet header, source addr: original ipv4 addr, dest addr: local subnet addr
+ * payload_len - length of other data inside packet
+ * protocol    - protocol number (tcp, udp, etc)
+ * old_header  - (ipv6) source packet header, source addr: nat64 prefix, dest addr: local subnet prefix
  */
-void fill_ip_header(struct iphdr *ip_targ, uint16_t other_len, uint8_t protocol, const struct ip6_hdr *old_header) {
+void fill_ip_header(struct iphdr *ip_targ, uint16_t payload_len, uint8_t protocol, const struct ip6_hdr *old_header) {
   uint32_t host_addr;
 
   memset(ip_targ, 0, sizeof(ip_targ));
@@ -49,42 +55,53 @@ void fill_ip_header(struct iphdr *ip_targ, uint16_t other_len, uint8_t protocol,
   ip_targ->ihl = 5;
   ip_targ->version = 4;
   ip_targ->tos = 0;
-  ip_targ->tot_len = htons(sizeof(struct iphdr) + other_len);
+  ip_targ->tot_len = htons(sizeof(struct iphdr) + payload_len);
   ip_targ->id = 0;
   ip_targ->frag_off = htons(IP_DF);
   ip_targ->ttl = old_header->ip6_hlim;
   ip_targ->protocol = protocol;
   ip_targ->check = 0;
 
-  ip_targ->saddr = old_header->ip6_src.s6_addr32[3];
+  ip_targ->saddr = ipv6_src_to_ipv4_src(&old_header->ip6_src);
   ip_targ->daddr = config.ipv4_local_subnet.s_addr;
 
   ip_targ->check = ip_checksum(ip_targ,sizeof(struct iphdr));
 }
 
+/* function: ipv4_dst_to_ipv6_dst
+ * return the corresponding ipv6 address for the given ipv4 address
+ * destination - ipv4 destination address (network byte order)
+ */
+struct in6_addr ipv4_dst_to_ipv6_dst(uint32_t destination) {
+  struct in6_addr v6_destination;
+
+  v6_destination = config.plat_subnet;
+  v6_destination.s6_addr32[3] = destination;
+
+  return v6_destination;
+}
+
 /* function: fill_ip6_header
  * generating an ipv6 header from an ipv4 header (called by the layer 4 protocol-specific functions)
- * ip6        - (ipv6) target packet header, source addr: local subnet prefix, dest addr: nat64 prefix
- * other_len  - length of other data inside packet
- * protocol   - protocol number (tcp, udp, etc)
- * old_header - (ipv4) source packet header, source addr: local subnet addr, dest addr: internet's ipv4 addr
+ * ip6         - (ipv6) target packet header, source addr: local subnet prefix, dest addr: nat64 prefix
+ * payload_len - length of other data inside packet
+ * protocol    - protocol number (tcp, udp, etc)
+ * old_header  - (ipv4) source packet header, source addr: local subnet addr, dest addr: internet's ipv4 addr
  */
-void fill_ip6_header(struct ip6_hdr *ip6, uint16_t other_len, uint8_t protocol, const struct iphdr *old_header) {
+void fill_ip6_header(struct ip6_hdr *ip6, uint16_t payload_len, uint8_t protocol, const struct iphdr *old_header) {
   uint32_t host_addr;
 
   memset(ip6, 0, sizeof(struct ip6_hdr));
 
   ip6->ip6_vfc = 6 << 4;
-  ip6->ip6_plen = htons(other_len);
+  ip6->ip6_plen = htons(payload_len);
   ip6->ip6_nxt = protocol;
   ip6->ip6_hlim = old_header->ttl;
 
   host_addr = ntohl(old_header->saddr) & 0xff;
 
   ip6->ip6_src = config.ipv6_local_subnet;
-
-  ip6->ip6_dst = config.plat_subnet;
-  ip6->ip6_dst.s6_addr32[3] = old_header->daddr;
+  ip6->ip6_dst = ipv4_dst_to_ipv6_dst(old_header->daddr);
 }
 
 /* function: icmp_to_icmp6
@@ -290,8 +307,7 @@ void udp6_to_udp(int fd, const struct ip6_hdr *ip6, const struct udphdr *udp, co
  * options_size - size of tcp option buffer
  *
  * TODO: mss rewrite
- * TODO: dealing with options
- * TODO: hosts without pmtu discovery
+ * TODO: hosts without pmtu discovery - non DF packets will rely on fragmentation (unimplemented)
  */
 void tcp_translate(int fd, const struct tcphdr *tcp, const char *payload, size_t payload_size, struct iovec *io_targ, uint32_t checksum, const char *options, size_t options_size) {
   struct tcphdr tcp_targ;

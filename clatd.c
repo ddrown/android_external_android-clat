@@ -191,20 +191,33 @@ void configure_tun_ip(const char *device) {
  */
 void drop_root() {
   gid_t groups[] = { AID_INET };
-  setgroups(sizeof(groups)/sizeof(groups[0]), groups);
+  if(setgroups(sizeof(groups)/sizeof(groups[0]), groups) < 0) {
+    logmsg(ANDROID_LOG_FATAL,"drop_root/setgroups failed: %s",strerror(errno));
+    exit(1);
+  }
 
   prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
 
-  setgid(AID_CLATD);
-  setuid(AID_CLATD);
+  if(setgid(AID_CLATD) < 0) {
+    logmsg(ANDROID_LOG_FATAL,"drop_root/setgid failed: %s",strerror(errno));
+    exit(1);
+  }
+  if(setuid(AID_CLATD) < 0) {
+    logmsg(ANDROID_LOG_FATAL,"drop_root/setuid failed: %s",strerror(errno));
+    exit(1);
+  }
 
   struct __user_cap_header_struct header;
   struct __user_cap_data_struct cap;
   header.version = _LINUX_CAPABILITY_VERSION;
-  header.pid = 0;
+  header.pid = 0; // 0 = change myself
   cap.inheritable =
    cap.effective = cap.permitted = (1 << CAP_NET_ADMIN);
-  capset(&header, &cap);
+
+  if(capset(&header, &cap) < 0) {
+    logmsg(ANDROID_LOG_FATAL,"drop_root/capset failed: %s",strerror(errno));
+    exit(1);
+  }
 }
 
 /* function: main

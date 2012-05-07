@@ -42,13 +42,14 @@ size_t inet_family_size(int family) {
   }
 }
 
-/* function: nlmsg_alloc_ifaddr
- * allocates a netlink message with a struct ifaddrmsg inside of it. returns NULL on failure
- * type  - netlink message type
- * flags - netlink message flags
- * ifa   - ifaddrmsg to copy into the new netlink message
+/* function: nlmsg_alloc_generic
+ * allocates a netlink message with the given struct inside of it. returns NULL on failure
+ * type           - netlink message type
+ * flags          - netlink message flags
+ * payload_struct - pointer to a struct to add to netlink message
+ * payload_len    - bytelength of structure
  */
-struct nl_msg *nlmsg_alloc_ifaddr(uint16_t type, uint16_t flags, struct ifaddrmsg *ifa) {
+struct nl_msg *nlmsg_alloc_generic(uint16_t type, uint16_t flags, void *payload_struct, size_t payload_len) {
   struct nl_msg *msg = NULL;
 
   msg = nlmsg_alloc();
@@ -56,18 +57,28 @@ struct nl_msg *nlmsg_alloc_ifaddr(uint16_t type, uint16_t flags, struct ifaddrms
     return NULL;
   }
 
-  if ((sizeof(struct nl_msg) + sizeof(struct ifaddrmsg)) > msg->nm_size) {
+  if ((sizeof(struct nl_msg) + payload_len) > msg->nm_size) {
     nlmsg_free(msg);
     return NULL;
   }
 
-  msg->nm_nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+  msg->nm_nlh->nlmsg_len = NLMSG_LENGTH(payload_len);
   msg->nm_nlh->nlmsg_flags = flags;
   msg->nm_nlh->nlmsg_type = type;
 
-  memcpy(((char *)msg->nm_nlh + NLMSG_HDRLEN), ifa, sizeof(struct ifaddrmsg));
+  memcpy(nlmsg_data(msg->nm_nlh), payload_struct, payload_len);
 
   return msg;
+}
+
+/* function: nlmsg_alloc_ifaddr
+ * allocates a netlink message with a struct ifaddrmsg inside of it. returns NULL on failure
+ * type  - netlink message type
+ * flags - netlink message flags
+ * ifa   - ifaddrmsg to copy into the new netlink message
+ */
+struct nl_msg *nlmsg_alloc_ifaddr(uint16_t type, uint16_t flags, struct ifaddrmsg *ifa) {
+  return nlmsg_alloc_generic(type, flags, ifa, sizeof(struct ifaddrmsg));
 }
 
 /* function: nlmsg_alloc_ifinfo
@@ -77,25 +88,7 @@ struct nl_msg *nlmsg_alloc_ifaddr(uint16_t type, uint16_t flags, struct ifaddrms
  * ifi   - ifinfomsg to copy into the new netlink message
  */
 struct nl_msg *nlmsg_alloc_ifinfo(uint16_t type, uint16_t flags, struct ifinfomsg *ifi) {
-  struct nl_msg *msg = NULL;
-
-  msg = nlmsg_alloc();
-  if(!msg) {
-    return NULL;
-  }
-
-  if ((sizeof(struct nl_msg) + sizeof(struct ifinfomsg)) > msg->nm_size) {
-    nlmsg_free(msg);
-    return NULL;
-  }
-
-  msg->nm_nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-  msg->nm_nlh->nlmsg_flags = flags;
-  msg->nm_nlh->nlmsg_type = type;
-
-  memcpy(((char *)msg->nm_nlh + NLMSG_HDRLEN), ifi, sizeof(struct ifinfomsg));
-
-  return msg;
+  return nlmsg_alloc_generic(type, flags, ifi, sizeof(struct ifinfomsg));
 }
 
 /* function: nlmsg_alloc_rtmsg
@@ -105,25 +98,7 @@ struct nl_msg *nlmsg_alloc_ifinfo(uint16_t type, uint16_t flags, struct ifinfoms
  * rt    - rtmsg to copy into the new netlink message
  */
 struct nl_msg *nlmsg_alloc_rtmsg(uint16_t type, uint16_t flags, struct rtmsg *rt) {
-  struct nl_msg *msg = NULL;
-
-  msg = nlmsg_alloc();
-  if(!msg) {
-    return NULL;
-  }
-
-  if ((sizeof(struct nl_msg) + sizeof(struct rtmsg)) > msg->nm_size) {
-    nlmsg_free(msg);
-    return NULL;
-  }
-
-  msg->nm_nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-  msg->nm_nlh->nlmsg_flags = flags;
-  msg->nm_nlh->nlmsg_type = type;
-
-  memcpy(((char *)msg->nm_nlh + NLMSG_HDRLEN), rt, sizeof(struct rtmsg));
-
-  return msg;
+  return nlmsg_alloc_generic(type, flags, rt, sizeof(struct rtmsg));
 }
 
 /* function: send_netlink_msg

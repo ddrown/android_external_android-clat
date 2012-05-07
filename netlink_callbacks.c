@@ -43,6 +43,8 @@ static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, void *ar
   int *retval = arg;
   if(err->error < 0) {
     *retval = err->error;
+  } else {
+    *retval = 0; // NLMSG_ERROR used as reply type on no error
   }
   return NL_OK;
 }

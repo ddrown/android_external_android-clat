@@ -21,7 +21,6 @@
 union anyip {
   struct in6_addr ip6;
   struct in_addr ip4;
-  char ip_ptr;
 };
 
 union anyip *getinterface_ip(const char *interface, int family);

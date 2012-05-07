@@ -60,14 +60,14 @@ static int getaddr_cb(struct nl_msg *msg, void *data) {
     switch(rta_p->rta_type) {
       case IFA_ADDRESS:
         if((targ_p->family == AF_INET6) && !(ifa_p->ifa_flags & IFA_F_SECONDARY)) {
-          memcpy(&targ_p->ip.ip_ptr, RTA_DATA(rta_p), rta_p->rta_len - sizeof(struct rtattr));
+          memcpy(&targ_p->ip, RTA_DATA(rta_p), rta_p->rta_len - sizeof(struct rtattr));
           targ_p->foundip = 1;
           return NL_OK;
         }
         break;
       case IFA_LOCAL:
         if(targ_p->family == AF_INET) {
-          memcpy(&targ_p->ip.ip_ptr, RTA_DATA(rta_p), rta_p->rta_len - sizeof(struct rtattr));
+          memcpy(&targ_p->ip, RTA_DATA(rta_p), rta_p->rta_len - sizeof(struct rtattr));
           targ_p->foundip = 1;
           return NL_OK;
         }
@@ -122,7 +122,7 @@ union anyip *getinterface_ip(const char *interface, int family) {
   if(targ.foundip) {
     retval = malloc(sizeof(union anyip));
     if(retval) {
-      memcpy(retval, &targ.ip.ip_ptr, sizeof(union anyip));
+      memcpy(retval, &targ.ip, sizeof(union anyip));
     }
   }
 
