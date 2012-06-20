@@ -48,11 +48,27 @@ void set_forwarding(int fd, const char *setting) {
   }
 }
 
+/* function: set_accept_ra
+ * accepts IPv6 RAs on all interfaces, even when forwarding is on
+ */
+void set_accept_ra() {
+  int fd;
+  fd = open("/proc/sys/net/ipv6/conf/all/accept_ra", O_RDWR);
+  if(fd < 0) {
+    logmsg(ANDROID_LOG_WARN,"open /proc/sys/net/ipv6/conf/all/accept_ra failed: %s",strerror(errno));
+    return;
+  }
+  if(write(fd, "2\n", 2) < 0) {
+    logmsg(ANDROID_LOG_WARN,"write to accept_ra failed: %s",strerror(errno));
+  }
+  close(fd);
+}
+
 /* function: got_sigterm
  * signal handler: clean up and exit
  */
 void got_sigterm(int signal) {
-  if(forwarding_fd > 0) {
+  if(forwarding_fd > -1) {
     set_forwarding(forwarding_fd, "0\n");
   }
   exit(0);
@@ -96,7 +112,7 @@ int tun_alloc(char *dev, int fd) {
     return err;
   }
   strcpy(dev, ifr.ifr_name);
-  return fd;
+  return 0;
 }
 
 /* function: deconfigure_tun_ipv6
@@ -107,8 +123,7 @@ void deconfigure_tun_ipv6(const char *device) {
   int status;
 
   if((status = if_route(device, AF_INET6, &config.ipv6_local_subnet, 128, NULL, 1, 0, ROUTE_DELETE)) < 0) {
-    logmsg(ANDROID_LOG_FATAL,"deconfigure_tun_ipv6/if_route(6) failed: %s",strerror(-status));
-    exit(1);
+    logmsg(ANDROID_LOG_WARN,"deconfigure_tun_ipv6/if_route(6) failed: %s",strerror(-status));
   }
 }
 
@@ -130,7 +145,7 @@ void configure_tun_ipv6(const char *device) {
 /* function: interface_poll
  * polls the uplink network interface for address changes
  */
-void interface_poll() {
+void interface_poll(const char *tun_device) {
   union anyip *interface_ip;
 
   interface_ip = getinterface_ip(config.default_pdp_interface, AF_INET6);
@@ -148,11 +163,11 @@ void interface_poll() {
     logmsg(ANDROID_LOG_WARN, "clat subnet changed from %s to %s", from_addr, to_addr);
 
     // remove old route
-    deconfigure_tun_ipv6(config.default_pdp_interface);
+    deconfigure_tun_ipv6(tun_device);
 
     // add new route, start translating packets to the new prefix
     memcpy(&config.ipv6_local_subnet, &interface_ip->ip6, sizeof(struct in6_addr));
-    configure_tun_ipv6(config.default_pdp_interface);
+    configure_tun_ipv6(tun_device);
   }
 
   free(interface_ip);
@@ -220,40 +235,17 @@ void drop_root() {
   }
 }
 
-/* function: main
- * allocate and setup the tun device, then run the event loop
+/* function: configure_interface
+ * reads the configuration and applies it to the interface
+ * uplink_interface - network interface to use to reach the ipv6 internet
+ * plat_prefix      - PLAT prefix to use
+ * fd               - file descriptor to tun device
+ * device           - (in) requested device name (out) allocated device name
  */
-int main() {
-  int fd, starting;
-  char packet[PACKETLEN];
-  char device[IFNAMSIZ] = DEVICENAME;
-  size_t readlen;
-  time_t startup, last_forward_write, last_interface_poll;
+void configure_interface(const char *uplink_interface, const char *plat_prefix, int fd, char *device) {
+  int error;
 
-  // make note of the time we started
-  startup = last_interface_poll = time(NULL);
-  starting = 1;
-
-  // open the tunnel device before dropping privs
-  fd = tun_open();
-  if(fd < 0) {
-    logmsg(ANDROID_LOG_FATAL,"tun_open failed: %s",strerror(errno));
-    exit(1);
-  }
-
-  // open the forwarding configuration before dropping privs
-  forwarding_fd = open("/proc/sys/net/ipv6/conf/all/forwarding", O_RDWR);
-  if(forwarding_fd < 0) {
-    logmsg(ANDROID_LOG_FATAL,"open /proc/sys/net/ipv6/conf/all/forwarding failed: %s",strerror(errno));
-    exit(1);
-  }
-
-  if(signal(SIGTERM, got_sigterm) == SIG_ERR) {
-    logmsg(ANDROID_LOG_FATAL, "sigterm handler failed: %s", strerror(errno));
-    exit(1);
-  }
-
-  if(!read_config("/system/etc/clatd.conf")) {
+  if(!read_config("/system/etc/clatd.conf", uplink_interface, plat_prefix)) {
     logmsg(ANDROID_LOG_FATAL,"read_config failed");
     exit(1);
   }
@@ -272,41 +264,55 @@ int main() {
     logmsg(ANDROID_LOG_WARN,"ipv4mtu=%d",config.ipv4mtu);
   }
 
-  fd = tun_alloc(device, fd);
-  if(fd < 0) {
+  error = tun_alloc(device, fd);
+  if(error < 0) {
     logmsg(ANDROID_LOG_FATAL,"tun_alloc failed: %s",strerror(errno));
     exit(1);
   }
 
   configure_tun_ip(device);
+}
 
-  if(__system_property_set("net.ipv4.compat","clat") < 0) {
-    logmsg(ANDROID_LOG_WARN,"failed to set net.ipv4.compat property");
+/* function: packet_handler
+ * takes a tun header and a packet and sends it down the stack
+ * tun_fd     - tun file descriptor
+ * tun_header - tun header
+ * packet     - packet
+ * packetsize - size of packet
+ */
+void packet_handler(int tun_fd, struct tun_pi *tun_header, const char *packet, size_t packetsize) {
+  tun_header->proto = ntohs(tun_header->proto);
+
+  if(tun_header->flags != 0) {
+    logmsg(ANDROID_LOG_WARN,"main/flags = %d", tun_header->flags);
   }
 
-  set_forwarding(forwarding_fd,"1\n");
-  last_forward_write = time(NULL);
+  if(tun_header->proto == ETH_P_IP) {
+    ip_packet(tun_fd,packet,packetsize);
+  } else if(tun_header->proto == ETH_P_IPV6) {
+    ipv6_packet(tun_fd,packet,packetsize);
+  } else {
+    logmsg(ANDROID_LOG_WARN,"main/unknown packet type = %x",tun_header->proto);
+  }
+}
 
-  // run under a regular user
-  drop_root();
+/* function: event_loop
+ * reads packets from the tun network interface and passes them down the stack
+ * tun_fd     - file descriptor for the tun network interface
+ * tun_device - tun device interface name
+ */
+void event_loop(int tun_fd, const char *tun_device) {
+  time_t last_interface_poll;
+  size_t readlen;
+  char packet[PACKETLEN];
 
-  while((readlen = read(fd,packet,PACKETLEN)) > 0) {
+  // start the poll timer
+  last_interface_poll = time(NULL);
+
+  while((readlen = read(tun_fd,packet,PACKETLEN)) > 0) {
     struct tun_pi tun_header;
     time_t now = time(NULL);
     size_t header_size = sizeof(struct tun_pi);
-
-    if(starting) {
-      // If we're starting up, make sure ipv6 forwarding is turned on
-      // protecting from racing against a quick transition from shutdown to
-      // startup
-      if(last_forward_write < now) {
-        set_forwarding(forwarding_fd,"1\n");
-        last_forward_write = now;
-      }
-      if(startup < (now - STARTUP_TIME)) {
-        starting = 0;
-      }
-    }
 
     if(readlen < header_size) {
       logmsg(ANDROID_LOG_WARN,"main/read short: got %ld bytes", readlen);
@@ -315,32 +321,90 @@ int main() {
 
     memcpy(&tun_header, packet, header_size);
 
-    tun_header.proto = ntohs(tun_header.proto);
-
-    if(tun_header.flags != 0) {
-      logmsg(ANDROID_LOG_WARN,"main/flags = %d", tun_header.flags);
-    }
-
-    if(tun_header.proto == ETH_P_IP) {
-      ip_packet(fd,packet+header_size,readlen-header_size);
-    } else if(tun_header.proto == ETH_P_IPV6) {
-      ipv6_packet(fd,packet+header_size,readlen-header_size);
-    } else if(tun_header.proto == 0) {
-      logcat_hexdump("proto/0",packet,readlen);
-      // ignore proto 0
-    } else {
-      logmsg(ANDROID_LOG_WARN,"main/unknown packet type = %x",tun_header.proto);
-    }
+    packet_handler(tun_fd, &tun_header, packet+header_size, readlen-header_size);
 
     memset(packet, 0, PACKETLEN);
 
     if(last_interface_poll < (now - INTERFACE_ADDRESS_POLL_FREQUENCY)) {
-      interface_poll();
+      interface_poll(tun_device);
       last_interface_poll = now;
     }
   }
+}
 
-  // loop exits if someone sets the tun interface down manually
+/* function: print_help
+ * in case the user is running this on the command line
+ */
+void print_help() {
+  printf("android-clat arguments:\n");
+  printf("-i [uplink interface]\n");
+  printf("-p [plat prefix]\n");
+}
+
+/* function: main
+ * allocate and setup the tun device, then run the event loop
+ */
+int main(int argc, char **argv) {
+  int tun_fd;
+  char device[IFNAMSIZ] = DEVICENAME;
+  int opt;
+  char *uplink_interface = NULL, *plat_prefix = NULL;
+
+  while((opt = getopt(argc, argv, "i:p:h")) != -1) {
+    switch(opt) {
+      case 'i':
+        uplink_interface = optarg;
+        break;
+      case 'p':
+        plat_prefix = optarg;
+        break;
+      case 'h':
+      default:
+        print_help();
+        exit(1);
+        break;
+    }
+  }
+
+  if(uplink_interface == NULL) {
+    printf("I need an interface\n");
+    exit(1);
+  }
+
+  // open the tunnel device before dropping privs
+  tun_fd = tun_open();
+  if(tun_fd < 0) {
+    logmsg(ANDROID_LOG_FATAL,"tun_open failed: %s",strerror(errno));
+    exit(1);
+  }
+
+  // open the forwarding configuration before dropping privs
+  forwarding_fd = open("/proc/sys/net/ipv6/conf/all/forwarding", O_RDWR);
+  if(forwarding_fd < 0) {
+    logmsg(ANDROID_LOG_FATAL,"open /proc/sys/net/ipv6/conf/all/forwarding failed: %s",strerror(errno));
+    exit(1);
+  }
+
+  // forwarding slows down IPv6 config while transitioning to wifi
+  set_accept_ra();
+
+  // protect against forwarding being on when bringing up cell network
+  // interface - RA is ignored when forwarding is on
+  set_default_ipv6_route(uplink_interface);
+
+  // run under a regular user
+  drop_root();
+
+  if(signal(SIGTERM, got_sigterm) == SIG_ERR) {
+    logmsg(ANDROID_LOG_FATAL, "sigterm handler failed: %s", strerror(errno));
+    exit(1);
+  }
+
+  configure_interface(uplink_interface, plat_prefix, tun_fd, device);
+
+  set_forwarding(forwarding_fd,"1\n");
+
+  event_loop(tun_fd,device); // event_loop returns if someone sets the tun interface down manually
 
   set_forwarding(forwarding_fd,"0\n");
 

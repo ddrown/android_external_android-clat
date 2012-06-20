@@ -33,7 +33,7 @@ struct clat_config {
 
 extern struct clat_config config;
 
-int read_config(const char *file);
+int read_config(const char *file, const char *uplink_interface, const char *plat_prefix);
 void config_generate_local_ipv6_subnet(struct in6_addr *interface_ip);
 
 #endif /* __CONFIG_H__ */

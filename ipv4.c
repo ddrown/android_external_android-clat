@@ -29,9 +29,9 @@
  * len    - size of ip payload
  * ip     - ip header
  */
-void icmp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
+void icmp_packet(int fd, const char *packet, size_t len, struct iphdr *ip) {
   struct icmphdr icmp;
-  char *payload;
+  const char *payload;
   size_t payload_size;
 
   if(len < sizeof(icmp)) {
@@ -55,10 +55,10 @@ void icmp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
  * len    - size of ip payload
  * ip     - ip header
  */
-void tcp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
+void tcp_packet(int fd, const char *packet, size_t len, struct iphdr *ip) {
   struct tcphdr tcp;
-  char *payload;
-  char *options;
+  const char *payload;
+  const char *options;
   size_t payload_size, options_size;
 
   if(len < sizeof(tcp)) {
@@ -105,9 +105,9 @@ void tcp_packet(int fd, char *packet, size_t len, struct iphdr *ip) {
  * len    - size of ip payload
  * ip     - ip header
  */
-void udp_packet(int fd, char *packet, size_t len, const struct iphdr *ip) {
+void udp_packet(int fd, const char *packet, size_t len, const struct iphdr *ip) {
   struct udphdr udp;
-  char *payload;
+  const char *payload;
   size_t payload_size;
 
   if(len < sizeof(udp)) {
@@ -130,10 +130,10 @@ void udp_packet(int fd, char *packet, size_t len, const struct iphdr *ip) {
  * packet - packet data
  * len    - size of packet
  */
-void ip_packet(int fd, char *packet, size_t len) {
+void ip_packet(int fd, const char *packet, size_t len) {
   struct iphdr header;
   uint16_t frag_flags;
-  char *next_header;
+  const char *next_header;
   size_t len_left;
 
   if(len < sizeof(header)) {

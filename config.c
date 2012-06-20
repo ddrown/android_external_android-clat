@@ -246,9 +246,11 @@ int subnet_from_interface(cnode *root, const char *interface) {
 
 /* function: read_config
  * reads the config file and parses it into the global variable config. returns 0 on failure, 1 on success
- * file - filename to parse
+ * file             - filename to parse
+ * uplink_interface - interface to use to reach the internet and supplier of address space
+ * plat_prefix      - (optional) plat prefix to use, otherwise follow config file
  */
-int read_config(const char *file) {
+int read_config(const char *file, const char *uplink_interface, const char *plat_prefix) {
   cnode *root = config_node("", "");
   long int *tmp_int = NULL;
   void *tmp_ptr = NULL;
@@ -266,14 +268,10 @@ int read_config(const char *file) {
     goto failed;
   }
 
-  if(!__system_property_get("gsm.defaultpdpcontext.interface",config.default_pdp_interface)) {
-    logmsg(ANDROID_LOG_FATAL,"property gsm.defaultpdpcontext.interface not set");
-    goto failed;
-  }
+  strncpy(config.default_pdp_interface, uplink_interface, sizeof(config.default_pdp_interface));
 
-  // protect against forwarding being on when bringing up cell network
-  // interface - RA is ignored when forwarding is on
-  set_default_ipv6_route(config.default_pdp_interface);
+  if(!subnet_from_interface(root,config.default_pdp_interface))
+    goto failed;
 
   if(!(tmp_int = config_item_long(root, "mtu", "-1")))
     goto failed;
@@ -290,27 +288,36 @@ int read_config(const char *file) {
   config.ipv4mtu = *tmp_int;
   free(tmp_int);
 
-  if(!subnet_from_interface(root,config.default_pdp_interface))
-    goto failed;
-
   if(!(tmp_ptr = config_item_ip(root, "ipv4_local_subnet", "192.168.255.1")))
     goto failed;
   memcpy(&config.ipv4_local_subnet, tmp_ptr, sizeof(struct in_addr));
   free(tmp_ptr);
 
-  tmp_ptr = (void *)config_str(root, "plat_from_dns64", "yes");
-  if(!tmp_ptr || strcmp(tmp_ptr, "no") == 0) {
-    if(!(tmp_ptr = config_item_ip6(root, "plat_subnet", NULL))) {
-      logmsg(ANDROID_LOG_FATAL, "plat_from_dns64 disabled, but no plat_subnet specified");
+  if(plat_prefix) { // plat subnet is coming from the command line
+    if(inet_pton(AF_INET6, plat_prefix, &config.plat_subnet) <= 0) {
+      logmsg(ANDROID_LOG_FATAL,"invalid IPv6 address specified for plat prefix: %s", plat_prefix);
       goto failed;
     }
-    memcpy(&config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
-    free(tmp_ptr);
   } else {
-    if(!(config.plat_from_dns64_hostname = config_item_str(root, "plat_from_dns64_hostname", "ipv4.google.com")))
-      goto failed;
-    dns64_detection();
+    tmp_ptr = (void *)config_item_str(root, "plat_from_dns64", "yes");
+    if(!tmp_ptr || strcmp(tmp_ptr, "no") == 0) {
+      free(tmp_ptr);
+
+      if(!(tmp_ptr = config_item_ip6(root, "plat_subnet", NULL))) {
+        logmsg(ANDROID_LOG_FATAL, "plat_from_dns64 disabled, but no plat_subnet specified");
+        goto failed;
+      }
+      memcpy(&config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
+      free(tmp_ptr);
+    } else {
+      free(tmp_ptr);
+
+      if(!(config.plat_from_dns64_hostname = config_item_str(root, "plat_from_dns64_hostname", "ipv4.google.com")))
+        goto failed;
+      dns64_detection();
+    }
   }
+
 
   return 1;
 

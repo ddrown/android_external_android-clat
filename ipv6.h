@@ -18,6 +18,6 @@
 #ifndef __IPV6_H__
 #define __IPV6_H__
 
-void ipv6_packet(int fd, char *packet, size_t len);
+void ipv6_packet(int fd, const char *packet, size_t len);
 
 #endif /* __IPV6_H__ */

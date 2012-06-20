@@ -31,9 +31,9 @@
  * len    - size of ip payload
  * ip6    - ip6 header
  */
-void icmp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
+void icmp6_packet(int fd, const char *packet, size_t len, struct ip6_hdr *ip6) {
   struct icmp6_hdr icmp6;
-  char *payload;
+  const char *payload;
   size_t payload_size;
 
   if(len < sizeof(icmp6)) {
@@ -57,10 +57,10 @@ void icmp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
  * len    - size of ip payload
  * ip6    - ip6 header
  */
-void tcp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
+void tcp6_packet(int fd, const char *packet, size_t len, struct ip6_hdr *ip6) {
   struct tcphdr tcp;
-  char *payload;
-  char *options;
+  const char *payload;
+  const char *options;
   size_t payload_size, options_size;
 
   if(len < sizeof(tcp)) {
@@ -107,9 +107,9 @@ void tcp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
  * len    - size of ip payload
  * ip6    - ip6 header
  */
-void udp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
+void udp6_packet(int fd, const char *packet, size_t len, struct ip6_hdr *ip6) {
   struct udphdr udp;
-  char *payload;
+  const char *payload;
   size_t payload_size;
 
   if(len < sizeof(udp)) {
@@ -132,9 +132,9 @@ void udp6_packet(int fd, char *packet, size_t len, struct ip6_hdr *ip6) {
  * packet - packet data
  * len    - size of packet
  */
-void ipv6_packet(int fd, char *packet, size_t len) {
+void ipv6_packet(int fd, const char *packet, size_t len) {
   struct ip6_hdr header;
-  char *next_header;
+  const char *next_header;
   size_t len_left;
   int i;
 
