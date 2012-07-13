@@ -44,7 +44,8 @@ int forwarding_fd = -1;
 void set_forwarding(int fd, const char *setting) {
   /* we have to forward packets from the WAN to the tun interface */
   if(write(fd, setting, strlen(setting)) < 0) {
-    logmsg(ANDROID_LOG_WARN,"set_forwarding failed: %s", strerror(errno));
+    logmsg(ANDROID_LOG_FATAL,"set_forwarding failed: %s", strerror(errno));
+    exit(1);
   }
 }
 
@@ -52,16 +53,30 @@ void set_forwarding(int fd, const char *setting) {
  * accepts IPv6 RAs on all interfaces, even when forwarding is on
  */
 void set_accept_ra() {
-  int fd;
-  fd = open("/proc/sys/net/ipv6/conf/all/accept_ra", O_RDWR);
-  if(fd < 0) {
-    logmsg(ANDROID_LOG_WARN,"open /proc/sys/net/ipv6/conf/all/accept_ra failed: %s",strerror(errno));
-    return;
+  int fd, i;
+  const char *interface_names[] = {"wlan0","default",NULL};
+  const char ipv6_sysctl[] = "/proc/sys/net/ipv6/conf/";
+  const char accept_ra[] = "/accept_ra";
+
+  for(i = 0; interface_names[i]; i++) {
+    ssize_t sysctl_path_len = strlen(ipv6_sysctl)+strlen(interface_names[i])+strlen(accept_ra)+1;
+    char *sysctl_path = malloc(sysctl_path_len);
+    if(!sysctl_path) {
+      logmsg(ANDROID_LOG_FATAL,"set_accept_ra: malloc failed");
+      exit(1);
+    }
+    snprintf(sysctl_path, sysctl_path_len, "%s%s%s", ipv6_sysctl, interface_names[i], accept_ra);
+
+    fd = open(sysctl_path, O_RDWR);
+    free(sysctl_path);
+    if(fd < 0) {
+      continue;
+    }
+    if(write(fd, "2\n", 2) < 0) {
+      logmsg(ANDROID_LOG_WARN,"write to (%s)accept_ra failed: %s",interface_names[i],strerror(errno));
+    }
+    close(fd);
   }
-  if(write(fd, "2\n", 2) < 0) {
-    logmsg(ANDROID_LOG_WARN,"write to accept_ra failed: %s",strerror(errno));
-  }
-  close(fd);
 }
 
 /* function: got_sigterm
@@ -79,17 +94,12 @@ void got_sigterm(int signal) {
  */
 int tun_open() {
   int fd;
-  char *tundevpath;
 
-  tundevpath = "/dev/tun";
-  if(access(tundevpath, R_OK|W_OK) < 0) {
-    tundevpath = "/dev/net/tun";
-    if(access(tundevpath, R_OK|W_OK) < 0) {
-      return -1;
-    }
+  fd = open("/dev/tun", O_RDWR);
+  if(fd < 0) {
+    fd = open("/dev/net/tun", O_RDWR);
   }
 
-  fd = open(tundevpath, O_RDWR);
   return fd;
 }
 
@@ -104,8 +114,10 @@ int tun_alloc(char *dev, int fd) {
   memset(&ifr, 0, sizeof(ifr));
 
   ifr.ifr_flags = IFF_TUN;
-  if( *dev )
+  if( *dev ) {
     strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+    ifr.ifr_name[IFNAMSIZ-1] = '\0';
+  }
 
   if( (err = ioctl(fd, TUNSETIFF, (void *) &ifr)) < 0 ){
     close(fd);
@@ -150,7 +162,7 @@ void interface_poll(const char *tun_device) {
 
   interface_ip = getinterface_ip(config.default_pdp_interface, AF_INET6);
   if(!interface_ip) {
-    logmsg(ANDROID_LOG_FATAL,"unable to find an ipv6 ip on interface %s",config.default_pdp_interface);
+    logmsg(ANDROID_LOG_WARN,"unable to find an ipv6 ip on interface %s",config.default_pdp_interface);
     return;
   }
 
@@ -224,10 +236,12 @@ void drop_root() {
 
   struct __user_cap_header_struct header;
   struct __user_cap_data_struct cap;
+  memset(&header, 0, sizeof(header));
+  memset(&cap, 0, sizeof(cap));
+
   header.version = _LINUX_CAPABILITY_VERSION;
   header.pid = 0; // 0 = change myself
-  cap.inheritable =
-   cap.effective = cap.permitted = (1 << CAP_NET_ADMIN);
+  cap.effective = cap.permitted = (1 << CAP_NET_ADMIN);
 
   if(capset(&header, &cap) < 0) {
     logmsg(ANDROID_LOG_FATAL,"drop_root/capset failed: %s",strerror(errno));
@@ -255,13 +269,13 @@ void configure_interface(const char *uplink_interface, const char *plat_prefix, 
     logmsg(ANDROID_LOG_WARN,"ifmtu=%d",config.mtu);
   }
   if(config.mtu < 1280) {
-    logmsg(ANDROID_LOG_FATAL,"mtu too small = %d", config.mtu);
+    logmsg(ANDROID_LOG_WARN,"mtu too small = %d", config.mtu);
     config.mtu = 1280;
   }
 
-  if(config.ipv4mtu < 0) {
+  if(config.ipv4mtu < 0 || (config.ipv4mtu > config.mtu - 20)) {
     config.ipv4mtu = config.mtu-20;
-    logmsg(ANDROID_LOG_WARN,"ipv4mtu=%d",config.ipv4mtu);
+    logmsg(ANDROID_LOG_WARN,"ipv4mtu now set to = %d",config.ipv4mtu);
   }
 
   error = tun_alloc(device, fd);
@@ -284,7 +298,7 @@ void packet_handler(int tun_fd, struct tun_pi *tun_header, const char *packet, s
   tun_header->proto = ntohs(tun_header->proto);
 
   if(tun_header->flags != 0) {
-    logmsg(ANDROID_LOG_WARN,"main/flags = %d", tun_header->flags);
+    logmsg(ANDROID_LOG_WARN,"packet_handler: unexpected flags = %d", tun_header->flags);
   }
 
   if(tun_header->proto == ETH_P_IP) {
@@ -292,7 +306,7 @@ void packet_handler(int tun_fd, struct tun_pi *tun_header, const char *packet, s
   } else if(tun_header->proto == ETH_P_IPV6) {
     ipv6_packet(tun_fd,packet,packetsize);
   } else {
-    logmsg(ANDROID_LOG_WARN,"main/unknown packet type = %x",tun_header->proto);
+    logmsg(ANDROID_LOG_WARN,"packet_handler: unknown packet type = %x",tun_header->proto);
   }
 }
 
@@ -315,7 +329,7 @@ void event_loop(int tun_fd, const char *tun_device) {
     size_t header_size = sizeof(struct tun_pi);
 
     if(readlen < header_size) {
-      logmsg(ANDROID_LOG_WARN,"main/read short: got %ld bytes", readlen);
+      logmsg(ANDROID_LOG_WARN,"event_loop: short read: got %ld bytes", readlen);
       continue;
     }
 
@@ -367,6 +381,7 @@ int main(int argc, char **argv) {
   }
 
   if(uplink_interface == NULL) {
+    logmsg(ANDROID_LOG_FATAL,"clatd called without an interface");
     printf("I need an interface\n");
     exit(1);
   }
