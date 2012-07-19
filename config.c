@@ -51,114 +51,93 @@ char *config_item_str(cnode *root, const char *item_name, const char *defaultvar
   return strdup(tmp);
 }
 
-/* function: config_item_long
- * locates the config item and returns the pointer to a long int, or NULL on failure.  Caller frees pointer
- * root       - parsed configuration
- * item_name  - name of config item to locate
- * defaultvar - value to use if config item isn't present
+/* function: config_item_int16_t
+ * locates the config item, parses the integer, and returns the pointer ret_val_ptr, or NULL on failure
+ * root        - parsed configuration
+ * item_name   - name of config item to locate
+ * defaultvar  - value to use if config item isn't present
+ * ret_val_ptr - pointer for return value storage
  */
-long int *config_item_long(cnode *root, const char *item_name, const char *defaultvar) {
+int16_t *config_item_int16_t(cnode *root, const char *item_name, const char *defaultvar, int16_t *ret_val_ptr) {
   const char *tmp;
   char *endptr;
-  long int *conf_int;
-
-  conf_int = malloc(sizeof(long int));
-  if(!conf_int) {
-    logmsg(ANDROID_LOG_FATAL,"out of memory");
-    return NULL;
-  }
+  long int conf_int;
 
   if(!(tmp = config_str(root, item_name, defaultvar))) {
     logmsg(ANDROID_LOG_FATAL,"%s config item needed",item_name);
-    free(conf_int);
     return NULL;
   }
-  *conf_int = strtol(tmp,&endptr,10);
-  if(
-      ((*conf_int == LONG_MIN || *conf_int == LONG_MAX) && (errno > 0))
-      || (*conf_int == 0 && errno > 0)
-      ) {
-    perror("strtol");
-    free(conf_int);
+
+  errno = 0;
+  conf_int = strtol(tmp,&endptr,10);
+  if(errno > 0) {
+    logmsg(ANDROID_LOG_FATAL,"%s config item is not numeric: %s (error=%s)",item_name,tmp,strerror(errno));
     return NULL;
   }
   if(endptr == tmp || *tmp == '\0') {
     logmsg(ANDROID_LOG_FATAL,"%s config item is not numeric: %s",item_name,tmp);
-    free(conf_int);
     return NULL;
   }
   if(*endptr != '\0') {
     logmsg(ANDROID_LOG_FATAL,"%s config item contains non-numeric characters: %s",item_name,endptr);
-    free(conf_int);
     return NULL;
   }
-  return conf_int;
+  if(conf_int > INT16_MAX || conf_int < INT16_MIN) {
+    logmsg(ANDROID_LOG_FATAL,"%s config item is too big/small: %d",item_name,conf_int);
+    return NULL;
+  }
+  *ret_val_ptr = conf_int;
+  return ret_val_ptr;
 }
 
 /* function: config_item_ip
- * locates the config item and returns the pointer to a parsed ip address, or NULL on failure.  Caller frees pointer
- * root       - parsed configuration
- * item_name  - name of config item to locate
- * defaultvar - value to use if config item isn't present
+ * locates the config item, parses the ipv4 address, and returns the pointer ret_val_ptr, or NULL on failure
+ * root        - parsed configuration
+ * item_name   - name of config item to locate
+ * defaultvar  - value to use if config item isn't present
+ * ret_val_ptr - pointer for return value storage
  */
-struct in_addr *config_item_ip(cnode *root, const char *item_name, const char *defaultvar) {
+struct in_addr *config_item_ip(cnode *root, const char *item_name, const char *defaultvar, struct in_addr *ret_val_ptr) {
   const char *tmp;
-  struct in_addr *retval;
   int status;
-
-  retval = malloc(sizeof(struct in_addr));
-  if(!retval) {
-    logmsg(ANDROID_LOG_FATAL,"out of memory");
-    return NULL;
-  }
 
   if(!(tmp = config_str(root, item_name, defaultvar))) {
     logmsg(ANDROID_LOG_FATAL,"%s config item needed",item_name);
-    free(retval);
     return NULL;
   }
 
-  status = inet_pton(AF_INET, tmp, retval);
+  status = inet_pton(AF_INET, tmp, ret_val_ptr);
   if(status <= 0) {
     logmsg(ANDROID_LOG_FATAL,"invalid IPv4 address specified for %s: %s", item_name, tmp);
-    free(retval);
     return NULL;
   }
 
-  return retval;
+  return ret_val_ptr;
 }
 
 /* function: config_item_ip6
- * locates the config item and returns the pointer to a parsed ipv6 address, or NULL on failure.  Caller frees pointer
- * root       - parsed configuration
- * item_name  - name of config item to locate
- * defaultvar - value to use if config item isn't present
+ * locates the config item, parses the ipv6 address, and returns the pointer ret_val_ptr, or NULL on failure
+ * root        - parsed configuration
+ * item_name   - name of config item to locate
+ * defaultvar  - value to use if config item isn't present
+ * ret_val_ptr - pointer for return value storage
  */
-struct in6_addr *config_item_ip6(cnode *root, const char *item_name, const char *defaultvar) {
+struct in6_addr *config_item_ip6(cnode *root, const char *item_name, const char *defaultvar, struct in6_addr *ret_val_ptr) {
   const char *tmp;
-  struct in6_addr *retval;
   int status;
-
-  retval = malloc(sizeof(struct in6_addr));
-  if(!retval) {
-    logmsg(ANDROID_LOG_FATAL,"out of memory");
-    return NULL;
-  }
 
   if(!(tmp = config_str(root, item_name, defaultvar))) {
     logmsg(ANDROID_LOG_FATAL,"%s config item needed",item_name);
-    free(retval);
     return NULL;
   }
 
-  status = inet_pton(AF_INET6, tmp, retval);
+  status = inet_pton(AF_INET6, tmp, ret_val_ptr);
   if(status <= 0) {
     logmsg(ANDROID_LOG_FATAL,"invalid IPv6 address specified for %s: %s", item_name, tmp);
-    free(retval);
     return NULL;
   }
 
-  return retval;
+  return ret_val_ptr;
 }
 
 /* function: free_config
@@ -172,7 +151,7 @@ void free_config() {
 }
 
 /* function: dns64_detection
- * does dns lookups to set the plat subnet or exits on failure
+ * does dns lookups to set the plat subnet or exits on failure, waits forever for a dns response with a query backoff timer
  */
 void dns64_detection() {
   int i, backoff_sleep, status;
@@ -221,14 +200,9 @@ void config_generate_local_ipv6_subnet(struct in6_addr *interface_ip) {
  */
 int subnet_from_interface(cnode *root, const char *interface) {
   union anyip *interface_ip;
-  struct in6_addr *host_id;
 
-  if(!(host_id = config_item_ip6(root, "ipv6_host_id", "::200:5E10:0:0"))) {
+  if(!config_item_ip6(root, "ipv6_host_id", "::200:5E10:0:0", &Global_Clatd_Config.ipv6_host_id))
     return 0;
-  }
-  memcpy(&Global_Clatd_Config.ipv6_host_id, host_id, sizeof(struct in6_addr));
-  free(host_id);
-  host_id = NULL;
 
   interface_ip = getinterface_ip(interface, AF_INET6);
   if(!interface_ip) {
@@ -252,7 +226,6 @@ int subnet_from_interface(cnode *root, const char *interface) {
  */
 int read_config(const char *file, const char *uplink_interface, const char *plat_prefix) {
   cnode *root = config_node("", "");
-  long int *tmp_int = NULL;
   void *tmp_ptr = NULL;
 
   if(!root) {
@@ -273,25 +246,14 @@ int read_config(const char *file, const char *uplink_interface, const char *plat
   if(!subnet_from_interface(root,Global_Clatd_Config.default_pdp_interface))
     goto failed;
 
-  if(!(tmp_int = config_item_long(root, "mtu", "-1")))
+  if(!config_item_int16_t(root, "mtu", "-1", &Global_Clatd_Config.mtu))
     goto failed;
-  Global_Clatd_Config.mtu = *tmp_int;
-  free(tmp_int);
 
-  if(Global_Clatd_Config.mtu > MAXMTU) {
-    logmsg(ANDROID_LOG_FATAL,"Max MTU is %d", MAXMTU);
-    Global_Clatd_Config.mtu = MAXMTU;
-  }
-
-  if(!(tmp_int = config_item_long(root, "ipv4mtu", "-1")))
+  if(!config_item_int16_t(root, "ipv4mtu", "-1", &Global_Clatd_Config.ipv4mtu))
     goto failed;
-  Global_Clatd_Config.ipv4mtu = *tmp_int;
-  free(tmp_int);
 
-  if(!(tmp_ptr = config_item_ip(root, "ipv4_local_subnet", "192.168.255.1")))
+  if(!config_item_ip(root, "ipv4_local_subnet", DEFAULT_IPV4_LOCAL_SUBNET, &Global_Clatd_Config.ipv4_local_subnet))
     goto failed;
-  memcpy(&Global_Clatd_Config.ipv4_local_subnet, tmp_ptr, sizeof(struct in_addr));
-  free(tmp_ptr);
 
   if(plat_prefix) { // plat subnet is coming from the command line
     if(inet_pton(AF_INET6, plat_prefix, &Global_Clatd_Config.plat_subnet) <= 0) {
@@ -303,16 +265,14 @@ int read_config(const char *file, const char *uplink_interface, const char *plat
     if(!tmp_ptr || strcmp(tmp_ptr, "no") == 0) {
       free(tmp_ptr);
 
-      if(!(tmp_ptr = config_item_ip6(root, "plat_subnet", NULL))) {
+      if(!config_item_ip6(root, "plat_subnet", NULL, &Global_Clatd_Config.plat_subnet)) {
         logmsg(ANDROID_LOG_FATAL, "plat_from_dns64 disabled, but no plat_subnet specified");
         goto failed;
       }
-      memcpy(&Global_Clatd_Config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
-      free(tmp_ptr);
     } else {
       free(tmp_ptr);
 
-      if(!(Global_Clatd_Config.plat_from_dns64_hostname = config_item_str(root, "plat_from_dns64_hostname", "ipv4.google.com")))
+      if(!(Global_Clatd_Config.plat_from_dns64_hostname = config_item_str(root, "plat_from_dns64_hostname", DEFAULT_DNS64_DETECTION_HOSTNAME)))
         goto failed;
       dns64_detection();
     }

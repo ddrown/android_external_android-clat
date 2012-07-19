@@ -292,6 +292,10 @@ void configure_interface(const char *uplink_interface, const char *plat_prefix, 
     exit(1);
   }
 
+  if(Global_Clatd_Config.mtu > MAXMTU) {
+    logmsg(ANDROID_LOG_WARN,"Max MTU is %d, requested %d", MAXMTU, Global_Clatd_Config.mtu);
+    Global_Clatd_Config.mtu = MAXMTU;
+  }
   if(Global_Clatd_Config.mtu < 0) {
     Global_Clatd_Config.mtu = getifmtu(Global_Clatd_Config.default_pdp_interface);
     logmsg(ANDROID_LOG_WARN,"ifmtu=%d",Global_Clatd_Config.mtu);
