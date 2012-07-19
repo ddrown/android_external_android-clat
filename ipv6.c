@@ -15,7 +15,17 @@
  *
  * ipv6.c - takes ipv6 packets, finds their headers, and then calls translation functions on them
  */
-#include "system_headers.h"
+#include <string.h>
+
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
+#include <linux/icmp.h>
+
 #include "translate.h"
 #include "checksum.h"
 #include "ipv6.h"
@@ -160,7 +170,7 @@ void ipv6_packet(int fd, const char *packet, size_t len) {
   }
 
   for(i = 0; i < 3; i++) {
-    if(header.ip6_src.s6_addr32[i] != config.plat_subnet.s6_addr32[i]) {
+    if(header.ip6_src.s6_addr32[i] != Global_Clatd_Config.plat_subnet.s6_addr32[i]) {
 #if CLAT_DEBUG
       char srcaddress[INET6_ADDRSTRLEN];
       inet_ntop(AF_INET6, &header.ip6_src, srcaddress, sizeof(srcaddress));
@@ -169,7 +179,7 @@ void ipv6_packet(int fd, const char *packet, size_t len) {
       return;
     }
   }
-  if(!IN6_ARE_ADDR_EQUAL(&header.ip6_dst, &config.ipv6_local_subnet)) {
+  if(!IN6_ARE_ADDR_EQUAL(&header.ip6_dst, &Global_Clatd_Config.ipv6_local_subnet)) {
 #if CLAT_DEBUG
     char dstaddress[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, &header.ip6_dst, dstaddress, sizeof(dstaddress));

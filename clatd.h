@@ -21,10 +21,12 @@
 #include <linux/if_tun.h>
 
 #define MAXMTU 1500
-#define PACKETLEN MAXMTU+sizeof(struct tun_pi)
-// STARTUP_TIME in seconds
-#define STARTUP_TIME 5
-// INTERFACE_ADDRESS_POLL_FREQUENCY in seconds
-#define INTERFACE_ADDRESS_POLL_FREQUENCY 30
+#define PACKETLEN (MAXMTU+sizeof(struct tun_pi))
+
+// how frequently (in seconds) to poll for an address change while traffic is passing
+#define INTERFACE_POLL_FREQUENCY 30
+
+// how frequently (in seconds) to poll for an address change while there is no traffic
+#define NO_TRAFFIC_INTERFACE_POLL_FREQUENCY 90
 
 #endif /* __CLATD_H__ */

@@ -15,7 +15,17 @@
  *
  * ipv4.c - takes ipv4 packets, finds their headers, and then calls translation functions on them
  */
-#include "system_headers.h"
+#include <string.h>
+
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
+#include <linux/icmp.h>
+
 #include "translate.h"
 #include "checksum.h"
 #include "ipv4.h"

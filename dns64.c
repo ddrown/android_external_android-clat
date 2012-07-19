@@ -37,7 +37,7 @@ int plat_prefix(const char *ipv4_name, struct in6_addr *prefix) {
   struct addrinfo hints, *result, *p;
   int status, plat_addr_set, ipv4_records, ipv6_records;
   struct in6_addr plat_addr, this_plat_addr;
-  struct sockaddr_in6 *tmpaddr;
+  struct sockaddr_in6 *this_addr;
 
   result = NULL;
   plat_addr_set = 0;
@@ -61,21 +61,22 @@ int plat_prefix(const char *ipv4_name, struct in6_addr *prefix) {
       continue;
     }
     ipv6_records++;
-    tmpaddr = (struct sockaddr_in6 *)p->ai_addr;
-    this_plat_addr = tmpaddr->sin6_addr;
+    this_addr = (struct sockaddr_in6 *)p->ai_addr;
+    this_plat_addr = this_addr->sin6_addr;
     this_plat_addr.s6_addr32[3] = 0;
 
-    if(plat_addr_set) {
-      if(!IN6_ARE_ADDR_EQUAL(&plat_addr, &this_plat_addr)) {
-        char tmpaddr[INET6_ADDRSTRLEN], tmpaddr2[INET6_ADDRSTRLEN];
-        logmsg(ANDROID_LOG_ERROR,"plat_prefix/two different plat addrs = %s,%s",
-            inet_ntop(AF_INET6, &plat_addr, tmpaddr, sizeof(tmpaddr)),
-            inet_ntop(AF_INET6, &this_plat_addr, tmpaddr2, sizeof(tmpaddr2))
-            );
-      }
-    } else {
+    if(!plat_addr_set) {
       plat_addr = this_plat_addr;
       plat_addr_set = 1;
+      continue;
+    }
+
+    if(!IN6_ARE_ADDR_EQUAL(&plat_addr, &this_plat_addr)) {
+      char plat_addr_str[INET6_ADDRSTRLEN], this_plat_addr_str[INET6_ADDRSTRLEN];
+      logmsg(ANDROID_LOG_ERROR,"plat_prefix/two different plat addrs = %s,%s",
+          inet_ntop(AF_INET6, &plat_addr, plat_addr_str, sizeof(plat_addr_str)),
+          inet_ntop(AF_INET6, &this_plat_addr, this_plat_addr_str, sizeof(this_plat_addr_str))
+          );
     }
   }
   if(result != NULL) {

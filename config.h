@@ -31,7 +31,7 @@ struct clat_config {
   char *plat_from_dns64_hostname;
 };
 
-extern struct clat_config config;
+extern struct clat_config Global_Clatd_Config;
 
 int read_config(const char *file, const char *uplink_interface, const char *plat_prefix);
 void config_generate_local_ipv6_subnet(struct in6_addr *interface_ip);

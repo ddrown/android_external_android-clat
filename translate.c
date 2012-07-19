@@ -15,7 +15,18 @@
  *
  * translate.c - CLAT functions / partial implementation of rfc6145
  */
-#include "system_headers.h"
+#include <string.h>
+#include <sys/uio.h>
+
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
+#include <linux/icmp.h>
+
 #include "checksum.h"
 #include "clatd.h"
 #include "config.h"
@@ -63,7 +74,7 @@ void fill_ip_header(struct iphdr *ip_targ, uint16_t payload_len, uint8_t protoco
   ip_targ->check = 0;
 
   ip_targ->saddr = ipv6_src_to_ipv4_src(&old_header->ip6_src);
-  ip_targ->daddr = config.ipv4_local_subnet.s_addr;
+  ip_targ->daddr = Global_Clatd_Config.ipv4_local_subnet.s_addr;
 
   ip_targ->check = ip_checksum(ip_targ,sizeof(struct iphdr));
 }
@@ -75,7 +86,7 @@ void fill_ip_header(struct iphdr *ip_targ, uint16_t payload_len, uint8_t protoco
 struct in6_addr ipv4_dst_to_ipv6_dst(uint32_t destination) {
   struct in6_addr v6_destination;
 
-  v6_destination = config.plat_subnet;
+  v6_destination = Global_Clatd_Config.plat_subnet;
   v6_destination.s6_addr32[3] = destination;
 
   return v6_destination;
@@ -100,7 +111,7 @@ void fill_ip6_header(struct ip6_hdr *ip6, uint16_t payload_len, uint8_t protocol
 
   host_addr = ntohl(old_header->saddr) & 0xff;
 
-  ip6->ip6_src = config.ipv6_local_subnet;
+  ip6->ip6_src = Global_Clatd_Config.ipv6_local_subnet;
   ip6->ip6_dst = ipv4_dst_to_ipv6_dst(old_header->daddr);
 }
 

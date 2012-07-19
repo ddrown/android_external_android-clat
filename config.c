@@ -33,7 +33,7 @@
 #include "clatd.h"
 #include "setroute.h"
 
-struct clat_config config;
+struct clat_config Global_Clatd_Config;
 
 /* function: config_item_str
  * locates the config item and returns the pointer to a string, or NULL on failure.  Caller frees pointer
@@ -165,9 +165,9 @@ struct in6_addr *config_item_ip6(cnode *root, const char *item_name, const char 
  * frees the memory used by the global config variable
  */
 void free_config() {
-  if(config.plat_from_dns64_hostname) {
-    free(config.plat_from_dns64_hostname);
-    config.plat_from_dns64_hostname = NULL;
+  if(Global_Clatd_Config.plat_from_dns64_hostname) {
+    free(Global_Clatd_Config.plat_from_dns64_hostname);
+    Global_Clatd_Config.plat_from_dns64_hostname = NULL;
   }
 }
 
@@ -181,9 +181,9 @@ void dns64_detection() {
   backoff_sleep = 1;
 
   while(1) {
-    status = plat_prefix(config.plat_from_dns64_hostname,&tmp_ptr);
+    status = plat_prefix(Global_Clatd_Config.plat_from_dns64_hostname,&tmp_ptr);
     if(status > 0) {
-      memcpy(&config.plat_subnet, &tmp_ptr, sizeof(struct in6_addr));
+      memcpy(&Global_Clatd_Config.plat_subnet, &tmp_ptr, sizeof(struct in6_addr));
       return;
     }
     if(status < 0) {
@@ -210,7 +210,7 @@ void config_generate_local_ipv6_subnet(struct in6_addr *interface_ip) {
   int i;
 
   for(i = 2; i < 4; i++) {
-    interface_ip->s6_addr32[i] = config.ipv6_host_id.s6_addr32[i];
+    interface_ip->s6_addr32[i] = Global_Clatd_Config.ipv6_host_id.s6_addr32[i];
   }
 }
 
@@ -226,7 +226,7 @@ int subnet_from_interface(cnode *root, const char *interface) {
   if(!(host_id = config_item_ip6(root, "ipv6_host_id", "::200:5E10:0:0"))) {
     return 0;
   }
-  memcpy(&config.ipv6_host_id, host_id, sizeof(struct in6_addr));
+  memcpy(&Global_Clatd_Config.ipv6_host_id, host_id, sizeof(struct in6_addr));
   free(host_id);
   host_id = NULL;
 
@@ -236,16 +236,16 @@ int subnet_from_interface(cnode *root, const char *interface) {
     return 0;
   }
 
-  memcpy(&config.ipv6_local_subnet, &interface_ip->ip6, sizeof(struct in6_addr));
+  memcpy(&Global_Clatd_Config.ipv6_local_subnet, &interface_ip->ip6, sizeof(struct in6_addr));
   free(interface_ip);
 
-  config_generate_local_ipv6_subnet(&config.ipv6_local_subnet);
+  config_generate_local_ipv6_subnet(&Global_Clatd_Config.ipv6_local_subnet);
 
   return 1;
 }
 
 /* function: read_config
- * reads the config file and parses it into the global variable config. returns 0 on failure, 1 on success
+ * reads the config file and parses it into the global variable Global_Clatd_Config. returns 0 on failure, 1 on success
  * file             - filename to parse
  * uplink_interface - interface to use to reach the internet and supplier of address space
  * plat_prefix      - (optional) plat prefix to use, otherwise follow config file
@@ -260,7 +260,7 @@ int read_config(const char *file, const char *uplink_interface, const char *plat
     return 0;
   }
 
-  memset(&config, '\0', sizeof(config));
+  memset(&Global_Clatd_Config, '\0', sizeof(Global_Clatd_Config));
 
   config_load_file(root, file);
   if(root->first_child == NULL) {
@@ -268,33 +268,33 @@ int read_config(const char *file, const char *uplink_interface, const char *plat
     goto failed;
   }
 
-  strncpy(config.default_pdp_interface, uplink_interface, sizeof(config.default_pdp_interface));
+  strncpy(Global_Clatd_Config.default_pdp_interface, uplink_interface, sizeof(Global_Clatd_Config.default_pdp_interface));
 
-  if(!subnet_from_interface(root,config.default_pdp_interface))
+  if(!subnet_from_interface(root,Global_Clatd_Config.default_pdp_interface))
     goto failed;
 
   if(!(tmp_int = config_item_long(root, "mtu", "-1")))
     goto failed;
-  config.mtu = *tmp_int;
+  Global_Clatd_Config.mtu = *tmp_int;
   free(tmp_int);
 
-  if(config.mtu > MAXMTU) {
+  if(Global_Clatd_Config.mtu > MAXMTU) {
     logmsg(ANDROID_LOG_FATAL,"Max MTU is %d", MAXMTU);
-    config.mtu = MAXMTU;
+    Global_Clatd_Config.mtu = MAXMTU;
   }
 
   if(!(tmp_int = config_item_long(root, "ipv4mtu", "-1")))
     goto failed;
-  config.ipv4mtu = *tmp_int;
+  Global_Clatd_Config.ipv4mtu = *tmp_int;
   free(tmp_int);
 
   if(!(tmp_ptr = config_item_ip(root, "ipv4_local_subnet", "192.168.255.1")))
     goto failed;
-  memcpy(&config.ipv4_local_subnet, tmp_ptr, sizeof(struct in_addr));
+  memcpy(&Global_Clatd_Config.ipv4_local_subnet, tmp_ptr, sizeof(struct in_addr));
   free(tmp_ptr);
 
   if(plat_prefix) { // plat subnet is coming from the command line
-    if(inet_pton(AF_INET6, plat_prefix, &config.plat_subnet) <= 0) {
+    if(inet_pton(AF_INET6, plat_prefix, &Global_Clatd_Config.plat_subnet) <= 0) {
       logmsg(ANDROID_LOG_FATAL,"invalid IPv6 address specified for plat prefix: %s", plat_prefix);
       goto failed;
     }
@@ -307,12 +307,12 @@ int read_config(const char *file, const char *uplink_interface, const char *plat
         logmsg(ANDROID_LOG_FATAL, "plat_from_dns64 disabled, but no plat_subnet specified");
         goto failed;
       }
-      memcpy(&config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
+      memcpy(&Global_Clatd_Config.plat_subnet, tmp_ptr, sizeof(struct in6_addr));
       free(tmp_ptr);
     } else {
       free(tmp_ptr);
 
-      if(!(config.plat_from_dns64_hostname = config_item_str(root, "plat_from_dns64_hostname", "ipv4.google.com")))
+      if(!(Global_Clatd_Config.plat_from_dns64_hostname = config_item_str(root, "plat_from_dns64_hostname", "ipv4.google.com")))
         goto failed;
       dns64_detection();
     }
@@ -333,10 +333,10 @@ failed:
 void dump_config() {
   char charbuffer[INET6_ADDRSTRLEN];
 
-  logmsg(ANDROID_LOG_DEBUG,"mtu = %d",config.mtu);
-  logmsg(ANDROID_LOG_DEBUG,"ipv4mtu = %d",config.ipv4mtu);
-  logmsg(ANDROID_LOG_DEBUG,"ipv6_local_subnet = %s",inet_ntop(AF_INET6, &config.ipv6_local_subnet, charbuffer, sizeof(charbuffer)));
-  logmsg(ANDROID_LOG_DEBUG,"ipv4_local_subnet = %s",inet_ntop(AF_INET, &config.ipv4_local_subnet, charbuffer, sizeof(charbuffer)));
-  logmsg(ANDROID_LOG_DEBUG,"plat_subnet = %s",inet_ntop(AF_INET6, &config.plat_subnet, charbuffer, sizeof(charbuffer)));
-  logmsg(ANDROID_LOG_DEBUG,"default_pdp_interface = %s",config.default_pdp_interface);
+  logmsg(ANDROID_LOG_DEBUG,"mtu = %d",Global_Clatd_Config.mtu);
+  logmsg(ANDROID_LOG_DEBUG,"ipv4mtu = %d",Global_Clatd_Config.ipv4mtu);
+  logmsg(ANDROID_LOG_DEBUG,"ipv6_local_subnet = %s",inet_ntop(AF_INET6, &Global_Clatd_Config.ipv6_local_subnet, charbuffer, sizeof(charbuffer)));
+  logmsg(ANDROID_LOG_DEBUG,"ipv4_local_subnet = %s",inet_ntop(AF_INET, &Global_Clatd_Config.ipv4_local_subnet, charbuffer, sizeof(charbuffer)));
+  logmsg(ANDROID_LOG_DEBUG,"plat_subnet = %s",inet_ntop(AF_INET6, &Global_Clatd_Config.plat_subnet, charbuffer, sizeof(charbuffer)));
+  logmsg(ANDROID_LOG_DEBUG,"default_pdp_interface = %s",Global_Clatd_Config.default_pdp_interface);
 }

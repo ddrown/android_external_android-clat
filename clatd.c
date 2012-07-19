@@ -15,7 +15,37 @@
  *
  * clatd.c - tun interface setup and main event loop
  */
-#include "system_headers.h"
+#include <poll.h>
+#include <signal.h>
+#include <time.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
+#include <linux/icmp.h>
+
+#include <linux/capability.h>
+#include <linux/prctl.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
+#include <linux/if_ether.h>
+
+#include <private/android_filesystem_config.h>
+
 #include "ipv4.h"
 #include "ipv6.h"
 #include "clatd.h"
@@ -27,16 +57,10 @@
 #include "getaddr.h"
 #include "dump.h"
 
-#include <linux/capability.h>
-#include <linux/prctl.h>
-#include <private/android_filesystem_config.h>
-#include <signal.h>
-#include <time.h>
-#include <sys/system_properties.h>
-
 #define DEVICENAME "clat"
 
 int forwarding_fd = -1;
+volatile sig_atomic_t running = 1;
 
 /* function: set_forwarding
  * enables/disables ipv6 forwarding
@@ -44,7 +68,7 @@ int forwarding_fd = -1;
 void set_forwarding(int fd, const char *setting) {
   /* we have to forward packets from the WAN to the tun interface */
   if(write(fd, setting, strlen(setting)) < 0) {
-    logmsg(ANDROID_LOG_FATAL,"set_forwarding failed: %s", strerror(errno));
+    logmsg(ANDROID_LOG_FATAL,"set_forwarding(%s) failed: %s", setting, strerror(errno));
     exit(1);
   }
 }
@@ -80,13 +104,10 @@ void set_accept_ra() {
 }
 
 /* function: got_sigterm
- * signal handler: clean up and exit
+ * signal handler: mark it time to clean up
  */
 void got_sigterm(int signal) {
-  if(forwarding_fd > -1) {
-    set_forwarding(forwarding_fd, "0\n");
-  }
-  exit(0);
+  running = 0;
 }
 
 /* function: tun_open
@@ -134,7 +155,9 @@ int tun_alloc(char *dev, int fd) {
 void deconfigure_tun_ipv6(const char *device) {
   int status;
 
-  if((status = if_route(device, AF_INET6, &config.ipv6_local_subnet, 128, NULL, 1, 0, ROUTE_DELETE)) < 0) {
+  status = if_route(device, AF_INET6, &Global_Clatd_Config.ipv6_local_subnet,
+      128, NULL, 1, 0, ROUTE_DELETE);
+  if(status < 0) {
     logmsg(ANDROID_LOG_WARN,"deconfigure_tun_ipv6/if_route(6) failed: %s",strerror(-status));
   }
 }
@@ -148,7 +171,9 @@ void configure_tun_ipv6(const char *device) {
   struct in6_addr local_nat64_prefix_6;
   int status;
 
-  if((status = if_route(device, AF_INET6, &config.ipv6_local_subnet, 128, NULL, 1, 0, ROUTE_CREATE)) < 0) {
+  status = if_route(device, AF_INET6, &Global_Clatd_Config.ipv6_local_subnet,
+      128, NULL, 1, 0, ROUTE_CREATE);
+  if(status < 0) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ipv6/if_route(6) failed: %s",strerror(-status));
     exit(1);
   }
@@ -160,17 +185,17 @@ void configure_tun_ipv6(const char *device) {
 void interface_poll(const char *tun_device) {
   union anyip *interface_ip;
 
-  interface_ip = getinterface_ip(config.default_pdp_interface, AF_INET6);
+  interface_ip = getinterface_ip(Global_Clatd_Config.default_pdp_interface, AF_INET6);
   if(!interface_ip) {
-    logmsg(ANDROID_LOG_WARN,"unable to find an ipv6 ip on interface %s",config.default_pdp_interface);
+    logmsg(ANDROID_LOG_WARN,"unable to find an ipv6 ip on interface %s",Global_Clatd_Config.default_pdp_interface);
     return;
   }
 
   config_generate_local_ipv6_subnet(&interface_ip->ip6);
 
-  if(!IN6_ARE_ADDR_EQUAL(&interface_ip->ip6, &config.ipv6_local_subnet)) {
+  if(!IN6_ARE_ADDR_EQUAL(&interface_ip->ip6, &Global_Clatd_Config.ipv6_local_subnet)) {
     char from_addr[INET6_ADDRSTRLEN], to_addr[INET6_ADDRSTRLEN];
-    inet_ntop(AF_INET6, &config.ipv6_local_subnet, from_addr, sizeof(from_addr));
+    inet_ntop(AF_INET6, &Global_Clatd_Config.ipv6_local_subnet, from_addr, sizeof(from_addr));
     inet_ntop(AF_INET6, &interface_ip->ip6, to_addr, sizeof(to_addr));
     logmsg(ANDROID_LOG_WARN, "clat subnet changed from %s to %s", from_addr, to_addr);
 
@@ -178,7 +203,7 @@ void interface_poll(const char *tun_device) {
     deconfigure_tun_ipv6(tun_device);
 
     // add new route, start translating packets to the new prefix
-    memcpy(&config.ipv6_local_subnet, &interface_ip->ip6, sizeof(struct in6_addr));
+    memcpy(&Global_Clatd_Config.ipv6_local_subnet, &interface_ip->ip6, sizeof(struct in6_addr));
     configure_tun_ipv6(tun_device);
   }
 
@@ -195,11 +220,13 @@ void configure_tun_ip(const char *device) {
 
   default_4.s_addr = INADDR_ANY;
 
-  if((status = if_up(device, config.mtu)) < 0) {
+  if((status = if_up(device, Global_Clatd_Config.mtu)) < 0) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ip/if_up failed: %s",strerror(-status));
     exit(1);
   }
-  if((status = add_address(device, AF_INET, &config.ipv4_local_subnet, 32, &config.ipv4_local_subnet)) < 0) {
+  status = add_address(device, AF_INET, &Global_Clatd_Config.ipv4_local_subnet,
+      32, &Global_Clatd_Config.ipv4_local_subnet);
+  if(status < 0) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ip/if_address(4) failed: %s",strerror(-status));
     exit(1);
   }
@@ -207,7 +234,8 @@ void configure_tun_ip(const char *device) {
   configure_tun_ipv6(device);
 
   /* setup default ipv4 route */
-  if((status = if_route(device, AF_INET, &default_4, 0, NULL, 1, config.ipv4mtu, ROUTE_REPLACE)) < 0) {
+  status = if_route(device, AF_INET, &default_4, 0, NULL, 1, Global_Clatd_Config.ipv4mtu, ROUTE_REPLACE);
+  if(status < 0) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ip/if_route failed: %s",strerror(-status));
     exit(1);
   }
@@ -264,18 +292,18 @@ void configure_interface(const char *uplink_interface, const char *plat_prefix, 
     exit(1);
   }
 
-  if(config.mtu < 0) {
-    config.mtu = getifmtu(config.default_pdp_interface);
-    logmsg(ANDROID_LOG_WARN,"ifmtu=%d",config.mtu);
+  if(Global_Clatd_Config.mtu < 0) {
+    Global_Clatd_Config.mtu = getifmtu(Global_Clatd_Config.default_pdp_interface);
+    logmsg(ANDROID_LOG_WARN,"ifmtu=%d",Global_Clatd_Config.mtu);
   }
-  if(config.mtu < 1280) {
-    logmsg(ANDROID_LOG_WARN,"mtu too small = %d", config.mtu);
-    config.mtu = 1280;
+  if(Global_Clatd_Config.mtu < 1280) {
+    logmsg(ANDROID_LOG_WARN,"mtu too small = %d", Global_Clatd_Config.mtu);
+    Global_Clatd_Config.mtu = 1280;
   }
 
-  if(config.ipv4mtu < 0 || (config.ipv4mtu > config.mtu - 20)) {
-    config.ipv4mtu = config.mtu-20;
-    logmsg(ANDROID_LOG_WARN,"ipv4mtu now set to = %d",config.ipv4mtu);
+  if(Global_Clatd_Config.ipv4mtu < 0 || (Global_Clatd_Config.ipv4mtu > Global_Clatd_Config.mtu - 20)) {
+    Global_Clatd_Config.ipv4mtu = Global_Clatd_Config.mtu-20;
+    logmsg(ANDROID_LOG_WARN,"ipv4mtu now set to = %d",Global_Clatd_Config.ipv4mtu);
   }
 
   error = tun_alloc(device, fd);
@@ -310,6 +338,40 @@ void packet_handler(int tun_fd, struct tun_pi *tun_header, const char *packet, s
   }
 }
 
+/* function: read_packet
+ * reads a packet from the tunnel fd and passes it down the stack
+ * tun_fd - tun file descriptor
+ */
+void read_packet(int tun_fd) {
+  ssize_t readlen;
+  char packet[PACKETLEN];
+
+  // in case something ignores the packet length
+  memset(packet, 0, PACKETLEN);
+
+  readlen = read(tun_fd,packet,PACKETLEN);
+
+  if(readlen < 0) {
+    logmsg(ANDROID_LOG_WARN,"read_packet/read error: %s", strerror(errno));
+    return;
+  } else if(readlen == 0) {
+    logmsg(ANDROID_LOG_WARN,"read_packet/tun interface removed");
+    running = 0;
+  } else {
+    struct tun_pi tun_header;
+    ssize_t header_size = sizeof(struct tun_pi);
+
+    if(readlen < header_size) {
+      logmsg(ANDROID_LOG_WARN,"read_packet/short read: got %ld bytes", readlen);
+      return;
+    }
+
+    memcpy(&tun_header, packet, header_size);
+
+    packet_handler(tun_fd, &tun_header, packet+header_size, readlen-header_size);
+  }
+}
+
 /* function: event_loop
  * reads packets from the tun network interface and passes them down the stack
  * tun_fd     - file descriptor for the tun network interface
@@ -317,29 +379,28 @@ void packet_handler(int tun_fd, struct tun_pi *tun_header, const char *packet, s
  */
 void event_loop(int tun_fd, const char *tun_device) {
   time_t last_interface_poll;
-  size_t readlen;
-  char packet[PACKETLEN];
+  struct pollfd wait_fd;
 
   // start the poll timer
   last_interface_poll = time(NULL);
 
-  while((readlen = read(tun_fd,packet,PACKETLEN)) > 0) {
-    struct tun_pi tun_header;
-    time_t now = time(NULL);
-    size_t header_size = sizeof(struct tun_pi);
+  wait_fd.fd = tun_fd;
+  wait_fd.events = POLLIN;
+  wait_fd.revents = 0;
 
-    if(readlen < header_size) {
-      logmsg(ANDROID_LOG_WARN,"event_loop: short read: got %ld bytes", readlen);
-      continue;
+  while(running) {
+    if(poll(&wait_fd, 1, NO_TRAFFIC_INTERFACE_POLL_FREQUENCY*1000) == -1) {
+      if(errno != EINTR) {
+        logmsg(ANDROID_LOG_WARN,"event_loop/poll returned an error: %s",strerror(errno));
+      }
+    } else {
+      if((wait_fd.revents & POLLIN) != 0) {
+        read_packet(tun_fd);
+      }
     }
 
-    memcpy(&tun_header, packet, header_size);
-
-    packet_handler(tun_fd, &tun_header, packet+header_size, readlen-header_size);
-
-    memset(packet, 0, PACKETLEN);
-
-    if(last_interface_poll < (now - INTERFACE_ADDRESS_POLL_FREQUENCY)) {
+    time_t now = time(NULL);
+    if(last_interface_poll < (now - INTERFACE_POLL_FREQUENCY)) {
       interface_poll(tun_device);
       last_interface_poll = now;
     }
