@@ -47,9 +47,7 @@ void icmp6_packet(int fd, const char *packet, size_t len, struct ip6_hdr *ip6) {
   size_t payload_size;
 
   if(len < sizeof(icmp6)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"icmp6_packet/(too small)");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"icmp6_packet/(too small)");
     return;
   }
 
@@ -74,25 +72,19 @@ void tcp6_packet(int fd, const char *packet, size_t len, struct ip6_hdr *ip6) {
   size_t payload_size, options_size;
 
   if(len < sizeof(tcp)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"tcp6_packet/(too small)");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"tcp6_packet/(too small)");
     return;
   }
 
   memcpy(&tcp, packet, sizeof(tcp));
 
   if(tcp.doff < 5) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"tcp6_packet/tcp header length set to less than 5: %x",tcp.doff);
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"tcp6_packet/tcp header length set to less than 5: %x",tcp.doff);
     return;
   }
 
   if((size_t)tcp.doff*4 > len) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"tcp6_packet/tcp header length set too large: %x",tcp.doff);
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"tcp6_packet/tcp header length set too large: %x",tcp.doff);
     return;
   }
 
@@ -123,9 +115,7 @@ void udp6_packet(int fd, const char *packet, size_t len, struct ip6_hdr *ip6) {
   size_t payload_size;
 
   if(len < sizeof(udp)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"udp6_packet/(too small)");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"udp6_packet/(too small)");
     return;
   }
 
@@ -134,6 +124,20 @@ void udp6_packet(int fd, const char *packet, size_t len, struct ip6_hdr *ip6) {
   payload_size = len - sizeof(udp);
 
   udp6_to_udp(fd,ip6,&udp,payload,payload_size);
+}
+
+/* function: log_bad_address
+ * logs a bad address to android's log buffer if debugging is turned on
+ * fmt     - printf-style format, use %s to place the address
+ * badaddr - the bad address in question
+ */
+void log_bad_address(const char *fmt, const struct in6_addr *badaddr) {
+#if CLAT_DEBUG
+  char badaddr_str[INET6_ADDRSTRLEN];
+
+  inet_ntop(AF_INET6, badaddr, badaddr_str, sizeof(badaddr_str));
+  logmsg_dbg(ANDROID_LOG_ERROR,fmt,badaddr_str);
+#endif
 }
 
 /* function: ipv6_packet
@@ -149,9 +153,7 @@ void ipv6_packet(int fd, const char *packet, size_t len) {
   int i;
 
   if(len < sizeof(header)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"ipv6_packet/too short for an ip6 header");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"ipv6_packet/too short for an ip6 header");
     return;
   }
 
@@ -161,30 +163,18 @@ void ipv6_packet(int fd, const char *packet, size_t len) {
   len_left = len - sizeof(header);
 
   if(IN6_IS_ADDR_MULTICAST(&header.ip6_dst)) {
-#if CLAT_DEBUG
-    char dstaddress[INET6_ADDRSTRLEN];
-    inet_ntop(AF_INET6, &header.ip6_dst, dstaddress, sizeof(dstaddress));
-    logmsg(ANDROID_LOG_ERROR,"ipv6_packet/multicast %s",dstaddress);
-#endif
+    log_bad_address("ipv6_packet/multicast %s", &header.ip6_dst);
     return; // silently ignore
   }
 
   for(i = 0; i < 3; i++) {
     if(header.ip6_src.s6_addr32[i] != Global_Clatd_Config.plat_subnet.s6_addr32[i]) {
-#if CLAT_DEBUG
-      char srcaddress[INET6_ADDRSTRLEN];
-      inet_ntop(AF_INET6, &header.ip6_src, srcaddress, sizeof(srcaddress));
-      logmsg(ANDROID_LOG_ERROR,"ipv6_packet/wrong source address: %s", srcaddress);
-#endif
+      log_bad_address("ipv6_packet/wrong source address: %s", &header.ip6_src);
       return;
     }
   }
   if(!IN6_ARE_ADDR_EQUAL(&header.ip6_dst, &Global_Clatd_Config.ipv6_local_subnet)) {
-#if CLAT_DEBUG
-    char dstaddress[INET6_ADDRSTRLEN];
-    inet_ntop(AF_INET6, &header.ip6_dst, dstaddress, sizeof(dstaddress));
-    logmsg(ANDROID_LOG_ERROR,"ipv6_packet/wrong destination address: %s", dstaddress);
-#endif
+    log_bad_address("ipv6_packet/wrong destination address: %s", &header.ip6_dst);
     return;
   }
 
@@ -197,8 +187,8 @@ void ipv6_packet(int fd, const char *packet, size_t len) {
     udp6_packet(fd,next_header,len_left,&header);
   } else {
 #if CLAT_DEBUG
-    logcat_hexdump("ipv6/nxthdr", packet, len);
     logmsg(ANDROID_LOG_ERROR,"ipv6_packet/unknown next header type: %x",header.ip6_nxt);
+    logcat_hexdump("ipv6/nxthdr", packet, len);
 #endif
   }
 }

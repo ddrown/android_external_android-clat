@@ -22,5 +22,6 @@
 #include <android/log.h>
 
 void logmsg(int prio, const char *fmt, ...);
+void logmsg_dbg(int prio, const char *fmt, ...);
 
 #endif

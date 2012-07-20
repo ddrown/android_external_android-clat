@@ -214,11 +214,9 @@ void dump_tcp6(const struct tcphdr *tcp, const struct ip6_hdr *ip6, const char *
 void logcat_hexdump(const char *info, const char *data, size_t len) {
   char output[PACKETLEN*2+1];
   size_t i;
-  char hextable[] = "0123456789ABCDEF";
 
   for(i = 0; i < len && i < PACKETLEN; i++) {
-    output[i*2] = hextable[data[i] >> 4];
-    output[i*2+1] = hextable[data[i] & 0xf];
+    snprintf(output + i*2, 3, "%02hhx", data[i]);
   }
   output[len*2+2] = '\0';
 

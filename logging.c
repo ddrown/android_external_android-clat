@@ -20,11 +20,34 @@
 #include <android/log.h>
 
 #include "logging.h"
+#include "debug.h"
 
+/* function: logmsg
+ * prints a log message to android's log buffer
+ * prio - the log message priority
+ * fmt  - printf format specifier
+ * ...  - printf format arguments
+ */
 void logmsg(int prio, const char *fmt, ...) {
   va_list ap;
 
   va_start(ap, fmt);
   __android_log_vprint(prio, "clatd", fmt, ap);
   va_end(ap);
+}
+
+/* function: logmsg_dbg
+ * prints a log message to android's log buffer if CLAT_DEBUG is set
+ * prio - the log message priority
+ * fmt  - printf format specifier
+ * ...  - printf format arguments
+ */
+void logmsg_dbg(int prio, const char *fmt, ...) {
+#if CLAT_DEBUG
+  va_list ap;
+
+  va_start(ap, fmt);
+  __android_log_vprint(prio, "clatd", fmt, ap);
+  va_end(ap);
+#endif
 }

@@ -45,9 +45,7 @@ void icmp_packet(int fd, const char *packet, size_t len, struct iphdr *ip) {
   size_t payload_size;
 
   if(len < sizeof(icmp)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"icmp_packet/(too small)");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"icmp_packet/(too small)");
     return;
   }
 
@@ -72,25 +70,19 @@ void tcp_packet(int fd, const char *packet, size_t len, struct iphdr *ip) {
   size_t payload_size, options_size;
 
   if(len < sizeof(tcp)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"tcp_packet/(too small)");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"tcp_packet/(too small)");
     return;
   }
 
   memcpy(&tcp, packet, sizeof(tcp));
 
   if(tcp.doff < 5) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set to less than 5: %x",tcp.doff);
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set to less than 5: %x",tcp.doff);
     return;
   }
 
   if((size_t)tcp.doff*4 > len) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set too large: %x",tcp.doff);
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"tcp_packet/tcp header length set too large: %x",tcp.doff);
     return;
   }
 
@@ -121,9 +113,7 @@ void udp_packet(int fd, const char *packet, size_t len, const struct iphdr *ip) 
   size_t payload_size;
 
   if(len < sizeof(udp)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"udp_packet/(too small)");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"udp_packet/(too small)");
     return;
   }
 
@@ -147,9 +137,7 @@ void ip_packet(int fd, const char *packet, size_t len) {
   size_t len_left;
 
   if(len < sizeof(header)) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"ip_packet/too short for an ip header");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip_packet/too short for an ip header");
     return;
   }
 
@@ -157,30 +145,22 @@ void ip_packet(int fd, const char *packet, size_t len) {
 
   frag_flags = ntohs(header.frag_off);
   if(frag_flags & IP_MF) { // this could theoretically be supported, but isn't
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"ip_packet/more fragments set, dropping");
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip_packet/more fragments set, dropping");
     return;
   }
 
   if(header.ihl < 5) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"ip_packet/ip header length set to less than 5: %x",header.ihl);
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip_packet/ip header length set to less than 5: %x",header.ihl);
     return;
   }
 
   if((size_t)header.ihl*4 > len) { // ip header length larger than entire packet
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"ip_packet/ip header length set too large: %x",header.ihl);
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip_packet/ip header length set too large: %x",header.ihl);
     return;
   }
 
   if(header.version != 4) {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"ip_packet/ip header version not 4: %x",header.version);
-#endif
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip_packet/ip header version not 4: %x",header.version);
     return;
   }
 
@@ -200,8 +180,8 @@ void ip_packet(int fd, const char *packet, size_t len) {
     udp_packet(fd,next_header,len_left,&header);
   } else {
 #if CLAT_DEBUG
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip_packet/unknown protocol: %x",header.protocol);
     logcat_hexdump("ipv4/protocol", packet, len);
-    logmsg(ANDROID_LOG_ERROR,"ip_packet/unknown protocol: %x",header.protocol);
 #endif
   }
 }
