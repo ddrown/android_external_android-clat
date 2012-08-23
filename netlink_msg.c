@@ -20,6 +20,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <string.h>
+#include <errno.h>
 
 #include <netlink-types.h>
 #include <netlink/socket.h>
@@ -27,6 +28,7 @@
 #include <netlink/msg.h>
 
 #include "netlink_msg.h"
+#include "netlink_callbacks.h"
 
 /* function: family_size
  * returns the size of the address structure for the given family, or 0 on error
@@ -144,4 +146,24 @@ void send_ifaddrmsg(uint16_t type, uint16_t flags, struct ifaddrmsg *ifa, struct
   send_netlink_msg(msg, callbacks);
 
   nlmsg_free(msg);
+}
+
+/* function: netlink_sendrecv
+ * send a nl_msg and return an int status - only supports OK/ERROR responses
+ * msg - msg to send
+ */
+int netlink_sendrecv(struct nl_msg *msg) {
+  struct nl_cb *callbacks = NULL;
+  int retval = -1;
+
+  callbacks = alloc_ack_callbacks(&retval);
+  if(!callbacks) {
+    return -ENOMEM;
+  }
+
+  send_netlink_msg(msg, callbacks);
+
+  nl_cb_put(callbacks);
+
+  return retval;
 }

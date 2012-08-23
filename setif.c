@@ -24,7 +24,6 @@
 #include <netlink/msg.h>
 
 #include "netlink_msg.h"
-#include "netlink_callbacks.h"
 
 /* function: add_address
  * adds an IP address to/from an interface, returns 0 on success and <0 on failure
@@ -39,17 +38,10 @@ int add_address(const char *ifname, int family, const void *address, int prefixl
   size_t addr_size;
   struct ifaddrmsg ifa;
   struct nl_msg *msg = NULL;
-  struct nl_cb *callbacks = NULL;
 
   addr_size = inet_family_size(family);
   if(addr_size == 0) {
-    retval = -EINVAL;
-    goto cleanup;
-  }
-
-  callbacks = alloc_ack_callbacks(&retval);
-  if(!callbacks) {
-    retval = -ENOMEM;
+    retval = -EAFNOSUPPORT;
     goto cleanup;
   }
 
@@ -85,11 +77,9 @@ int add_address(const char *ifname, int family, const void *address, int prefixl
     }
   }
 
-  send_netlink_msg(msg, callbacks);
+  retval = netlink_sendrecv(msg);
 
 cleanup:
-  if(callbacks)
-    nl_cb_put(callbacks);
   if(msg)
     nlmsg_free(msg);
 
@@ -105,13 +95,6 @@ int if_up(const char *ifname, int mtu) {
   int retval = -1;
   struct ifinfomsg ifi;
   struct nl_msg *msg = NULL;
-  struct nl_cb *callbacks = NULL;
-
-  callbacks = alloc_ack_callbacks(&retval);
-  if(!callbacks) {
-    retval = -ENOMEM;
-    goto cleanup;
-  }
 
   memset(&ifi, 0, sizeof(ifi));
   if (!(ifi.ifi_index = if_nametoindex(ifname))) {
@@ -132,11 +115,9 @@ int if_up(const char *ifname, int mtu) {
     goto cleanup;
   }
 
-  send_netlink_msg(msg, callbacks);
+  retval = netlink_sendrecv(msg);
 
 cleanup:
-  if(callbacks)
-    nl_cb_put(callbacks);
   if(msg)
     nlmsg_free(msg);
 

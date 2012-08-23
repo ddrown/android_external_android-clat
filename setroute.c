@@ -26,7 +26,6 @@
 #include <netlink-types.h>
 
 #include "netlink_msg.h"
-#include "netlink_callbacks.h"
 #include "setroute.h"
 #include "logging.h"
 
@@ -44,7 +43,6 @@
 int if_route(const char *ifname, int family, const void *destination, int prefixlen, const void *gateway, int metric, int mtu, int change_type) {
   int retval = -1;
   struct nl_msg *msg = NULL;
-  struct nl_cb *callbacks = NULL;
   struct rtmsg rt;
   uint16_t type, flags;
   size_t addr_size;
@@ -52,18 +50,12 @@ int if_route(const char *ifname, int family, const void *destination, int prefix
 
   addr_size = inet_family_size(family);
   if(addr_size == 0) {
-    retval = -EINVAL;
+    retval = -EAFNOSUPPORT;
     goto cleanup;
   }
 
   if (!(ifindex = if_nametoindex(ifname))) {
     retval = -ENODEV;
-    goto cleanup;
-  }
-
-  callbacks = alloc_ack_callbacks(&retval);
-  if(!callbacks) {
-    retval = -ENOMEM;
     goto cleanup;
   }
 
@@ -80,6 +72,8 @@ int if_route(const char *ifname, int family, const void *destination, int prefix
       rt.rtm_scope = RT_SCOPE_UNIVERSE;
     }
     rt.rtm_type = RTN_UNICAST;
+    //RTPROT_STATIC = from administrator's configuration
+    //RTPROT_BOOT = from an automatic process
     rt.rtm_protocol = RTPROT_BOOT;
   }
 
@@ -134,11 +128,9 @@ int if_route(const char *ifname, int family, const void *destination, int prefix
     nla_nest_end(msg, metrics);
   }
 
-  send_netlink_msg(msg, callbacks);
+  retval = netlink_sendrecv(msg);
 
 cleanup:
-  if(callbacks)
-    nl_cb_put(callbacks);
   if(msg)
     nlmsg_free(msg);
 

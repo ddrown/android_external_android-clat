@@ -496,11 +496,8 @@ int main(int argc, char **argv) {
   }
 
   // forwarding slows down IPv6 config while transitioning to wifi
+  // forwarding also removes default routes learned from a RA
   set_accept_ra();
-
-  // protect against forwarding being on when bringing up cell network
-  // interface - RA is ignored when forwarding is on
-  set_default_ipv6_route(uplink_interface);
 
   // run under a regular user
   drop_root();
