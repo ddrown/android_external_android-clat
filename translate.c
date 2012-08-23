@@ -48,6 +48,7 @@ void fill_tun_header(struct tun_pi *tun_header, uint16_t proto) {
  * sourceaddr - ipv6 source address
  */
 uint32_t ipv6_src_to_ipv4_src(const struct in6_addr *sourceaddr) {
+  // assumes a /96 plat subnet
   return sourceaddr->s6_addr32[3];
 }
 
@@ -59,8 +60,6 @@ uint32_t ipv6_src_to_ipv4_src(const struct in6_addr *sourceaddr) {
  * old_header  - (ipv6) source packet header, source addr: nat64 prefix, dest addr: local subnet prefix
  */
 void fill_ip_header(struct iphdr *ip_targ, uint16_t payload_len, uint8_t protocol, const struct ip6_hdr *old_header) {
-  uint32_t host_addr;
-
   memset(ip_targ, 0, sizeof(ip_targ));
 
   ip_targ->ihl = 5;
@@ -86,6 +85,7 @@ void fill_ip_header(struct iphdr *ip_targ, uint16_t payload_len, uint8_t protoco
 struct in6_addr ipv4_dst_to_ipv6_dst(uint32_t destination) {
   struct in6_addr v6_destination;
 
+  // assumes a /96 plat subnet
   v6_destination = Global_Clatd_Config.plat_subnet;
   v6_destination.s6_addr32[3] = destination;
 
@@ -100,8 +100,6 @@ struct in6_addr ipv4_dst_to_ipv6_dst(uint32_t destination) {
  * old_header  - (ipv4) source packet header, source addr: local subnet addr, dest addr: internet's ipv4 addr
  */
 void fill_ip6_header(struct ip6_hdr *ip6, uint16_t payload_len, uint8_t protocol, const struct iphdr *old_header) {
-  uint32_t host_addr;
-
   memset(ip6, 0, sizeof(struct ip6_hdr));
 
   ip6->ip6_vfc = 6 << 4;
@@ -109,14 +107,12 @@ void fill_ip6_header(struct ip6_hdr *ip6, uint16_t payload_len, uint8_t protocol
   ip6->ip6_nxt = protocol;
   ip6->ip6_hlim = old_header->ttl;
 
-  host_addr = ntohl(old_header->saddr) & 0xff;
-
   ip6->ip6_src = Global_Clatd_Config.ipv6_local_subnet;
   ip6->ip6_dst = ipv4_dst_to_ipv6_dst(old_header->daddr);
 }
 
 /* function: icmp_to_icmp6
- * translate ipv4 icmp to ipv6 icmp
+ * translate ipv4 icmp to ipv6 icmp (only currently supports echo/echo reply)
  * fd           - tun interface fd
  * ip           - source packet ipv4 header
  * icmp         - source packet icmp header
@@ -130,7 +126,7 @@ void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, c
   struct tun_pi tun_header;
   uint32_t checksum_temp;
 
-  if(icmp->type != ICMP_ECHO && icmp->type != ICMP_ECHOREPLY) {
+  if((icmp->type != ICMP_ECHO) && (icmp->type != ICMP_ECHOREPLY)) {
     logmsg_dbg(ANDROID_LOG_WARN,"icmp_to_icmp6/unhandled icmp type: 0x%x",icmp->type);
     return;
   }
@@ -164,7 +160,7 @@ void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, c
 }
 
 /* function: icmp6_to_icmp
- * translate ipv6 icmp to ipv4 icmp
+ * translate ipv6 icmp to ipv4 icmp (only currently supports echo/echo reply)
  * fd           - tun interface fd
  * ip6          - source packet ipv6 header
  * icmp6        - source packet icmp6 header
