@@ -509,6 +509,9 @@ int main(int argc, char **argv) {
 
   configure_interface(uplink_interface, plat_prefix, &tunnel);
 
+  // turning on forwarding in linux has a side effect of calling rt6_purge_dflt_routers
+  // turn the learned default route into a configured route
+  set_default_ipv6_route(uplink_interface);
   set_forwarding(forwarding_fd,"1\n");
 
   event_loop(&tunnel); // event_loop returns if someone sets the tun interface down manually
