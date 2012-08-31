@@ -16,6 +16,7 @@
  * dump.c - print various headers for debugging
  */
 #include <stdio.h>
+#include <stdint.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -216,7 +217,7 @@ void logcat_hexdump(const char *info, const char *data, size_t len) {
   size_t i;
 
   for(i = 0; i < len && i < PACKETLEN; i++) {
-    snprintf(output + i*2, 3, "%02hhx", data[i]);
+    snprintf(output + i*2, 3, "%02x", (uint8_t)data[i]);
   }
   output[len*2+2] = '\0';
 

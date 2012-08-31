@@ -52,7 +52,7 @@ size_t inet_family_size(int family) {
  * payload_len    - bytelength of structure
  */
 struct nl_msg *nlmsg_alloc_generic(uint16_t type, uint16_t flags, void *payload_struct, size_t payload_len) {
-  struct nl_msg *msg = NULL;
+  struct nl_msg *msg;
 
   msg = nlmsg_alloc();
   if(!msg) {
@@ -80,7 +80,7 @@ struct nl_msg *nlmsg_alloc_generic(uint16_t type, uint16_t flags, void *payload_
  * ifa   - ifaddrmsg to copy into the new netlink message
  */
 struct nl_msg *nlmsg_alloc_ifaddr(uint16_t type, uint16_t flags, struct ifaddrmsg *ifa) {
-  return nlmsg_alloc_generic(type, flags, ifa, sizeof(struct ifaddrmsg));
+  return nlmsg_alloc_generic(type, flags, ifa, sizeof(*ifa));
 }
 
 /* function: nlmsg_alloc_ifinfo
@@ -90,7 +90,7 @@ struct nl_msg *nlmsg_alloc_ifaddr(uint16_t type, uint16_t flags, struct ifaddrms
  * ifi   - ifinfomsg to copy into the new netlink message
  */
 struct nl_msg *nlmsg_alloc_ifinfo(uint16_t type, uint16_t flags, struct ifinfomsg *ifi) {
-  return nlmsg_alloc_generic(type, flags, ifi, sizeof(struct ifinfomsg));
+  return nlmsg_alloc_generic(type, flags, ifi, sizeof(*ifi));
 }
 
 /* function: nlmsg_alloc_rtmsg
@@ -100,7 +100,7 @@ struct nl_msg *nlmsg_alloc_ifinfo(uint16_t type, uint16_t flags, struct ifinfoms
  * rt    - rtmsg to copy into the new netlink message
  */
 struct nl_msg *nlmsg_alloc_rtmsg(uint16_t type, uint16_t flags, struct rtmsg *rt) {
-  return nlmsg_alloc_generic(type, flags, rt, sizeof(struct rtmsg));
+  return nlmsg_alloc_generic(type, flags, rt, sizeof(*rt));
 }
 
 /* function: send_netlink_msg
@@ -109,17 +109,16 @@ struct nl_msg *nlmsg_alloc_rtmsg(uint16_t type, uint16_t flags, struct rtmsg *rt
  * callbacks - callbacks to use on responses
  */
 void send_netlink_msg(struct nl_msg *msg, struct nl_cb *callbacks) {
-  struct nl_sock *nl_sk = NULL;
-  int status;
+  struct nl_sock *nl_sk;
 
   nl_sk = nl_socket_alloc();
   if(!nl_sk)
     goto cleanup;
 
-  if((status = nl_connect(nl_sk, NETLINK_ROUTE)) != 0)
+  if(nl_connect(nl_sk, NETLINK_ROUTE) != 0)
     goto cleanup;
 
-  if((status = nl_send_auto_complete(nl_sk, msg)) < 0)
+  if(nl_send_auto_complete(nl_sk, msg) < 0)
     goto cleanup;
 
   nl_recvmsgs(nl_sk, callbacks);
@@ -154,7 +153,7 @@ void send_ifaddrmsg(uint16_t type, uint16_t flags, struct ifaddrmsg *ifa, struct
  */
 int netlink_sendrecv(struct nl_msg *msg) {
   struct nl_cb *callbacks = NULL;
-  int retval = -1;
+  int retval = -EIO;
 
   callbacks = alloc_ack_callbacks(&retval);
   if(!callbacks) {

@@ -42,10 +42,10 @@
  * change_type - ROUTE_DELETE, ROUTE_REPLACE, or ROUTE_CREATE
  */
 int if_route(const char *ifname, int family, const void *destination, int prefixlen, const void *gateway, int metric, int mtu, int change_type) {
-  int retval = -1;
+  int retval;
   struct nl_msg *msg = NULL;
   struct rtmsg rt;
-  uint16_t type, flags;
+  uint16_t type, flags = 0;
   size_t addr_size;
   uint32_t ifindex;
 
@@ -64,30 +64,33 @@ int if_route(const char *ifname, int family, const void *destination, int prefix
   rt.rtm_family = family;
   rt.rtm_table = RT_TABLE_MAIN;
   rt.rtm_dst_len = prefixlen;
-  if(change_type == ROUTE_DELETE) {
-    rt.rtm_scope = RT_SCOPE_NOWHERE;
-  } else {
-    if(gateway == NULL) {
-      rt.rtm_scope = RT_SCOPE_LINK;
-    } else {
-      rt.rtm_scope = RT_SCOPE_UNIVERSE;
-    }
-    rt.rtm_type = RTN_UNICAST;
-    //RTPROT_STATIC = from administrator's configuration
-    //RTPROT_BOOT = from an automatic process
-    rt.rtm_protocol = RTPROT_BOOT;
+  switch(change_type) {
+    case ROUTE_DELETE:
+      rt.rtm_scope = RT_SCOPE_NOWHERE;
+      type = RTM_DELROUTE;
+      break;
+
+    case ROUTE_REPLACE:
+      flags = NLM_F_REPLACE;
+    case ROUTE_CREATE:
+      type = RTM_NEWROUTE;
+      flags |= NLM_F_CREATE;
+      if(gateway == NULL) {
+        rt.rtm_scope = RT_SCOPE_LINK;
+      } else {
+        rt.rtm_scope = RT_SCOPE_UNIVERSE;
+      }
+      rt.rtm_type = RTN_UNICAST;
+      //RTPROT_STATIC = from administrator's configuration
+      //RTPROT_BOOT = from an automatic process
+      rt.rtm_protocol = RTPROT_BOOT;
+      break;
+
+    default:
+      retval = -EINVAL;
+      goto cleanup;
   }
 
-  if(change_type == ROUTE_REPLACE) {
-    type = RTM_NEWROUTE;
-    flags = NLM_F_REPLACE | NLM_F_CREATE;
-  } else if (change_type == ROUTE_CREATE) {
-    type = RTM_NEWROUTE;
-    flags = NLM_F_CREATE;
-  } else { // ROUTE_DELETE
-    type = RTM_DELROUTE;
-    flags = 0;
-  }
   flags |= NLM_F_REQUEST | NLM_F_ACK;
 
   msg = nlmsg_alloc_rtmsg(type, flags, &rt);

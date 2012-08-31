@@ -30,11 +30,11 @@
  * ifname    - name of interface to change
  * family    - address family (AF_INET, AF_INET6)
  * address   - pointer to a struct in_addr or in6_addr
- * prefixlen - bitmask of network (example: 24 for AF_INET's 255.255.255.0)
+ * prefixlen - bitlength of network (example: 24 for AF_INET's 255.255.255.0)
  * broadcast - broadcast address (only for AF_INET, ignored for AF_INET6)
  */
 int add_address(const char *ifname, int family, const void *address, int prefixlen, const void *broadcast) {
-  int retval = -1;
+  int retval;
   size_t addr_size;
   struct ifaddrmsg ifa;
   struct nl_msg *msg = NULL;
@@ -65,16 +65,20 @@ int add_address(const char *ifname, int family, const void *address, int prefixl
     goto cleanup;
   }
   if(family == AF_INET6) {
+    // AF_INET6 gets IFA_LOCAL + IFA_ADDRESS
     if(nla_put(msg, IFA_ADDRESS, addr_size, address) < 0) {
       retval = -ENOMEM;
       goto cleanup;
     }
-  }
-  if(family == AF_INET) { // AF_INET6 has no broadcast address
+  } else if(family == AF_INET) {
+    // AF_INET gets IFA_LOCAL + IFA_BROADCAST
     if(nla_put(msg, IFA_BROADCAST, addr_size, broadcast) < 0) {
       retval = -ENOMEM;
       goto cleanup;
     }
+  } else {
+    retval = -EAFNOSUPPORT;
+    goto cleanup;
   }
 
   retval = netlink_sendrecv(msg);

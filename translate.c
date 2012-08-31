@@ -75,7 +75,7 @@ void fill_ip_header(struct iphdr *ip_targ, uint16_t payload_len, uint8_t protoco
   ip_targ->saddr = ipv6_src_to_ipv4_src(&old_header->ip6_src);
   ip_targ->daddr = Global_Clatd_Config.ipv4_local_subnet.s_addr;
 
-  ip_targ->check = ip_checksum(ip_targ,sizeof(struct iphdr));
+  ip_targ->check = ip_checksum(ip_targ, sizeof(struct iphdr));
 }
 
 /* function: ipv4_dst_to_ipv6_dst
@@ -143,8 +143,8 @@ void icmp_to_icmp6(int fd, const struct iphdr *ip, const struct icmphdr *icmp, c
   icmp6_targ.icmp6_seq = icmp->un.echo.sequence;
 
   checksum_temp = ipv6_pseudo_header_checksum(0,&ip6_targ);
-  checksum_temp = ip_checksum_add(checksum_temp,&icmp6_targ,sizeof(icmp6_targ));
-  checksum_temp = ip_checksum_add(checksum_temp,payload,payload_size);
+  checksum_temp = ip_checksum_add(checksum_temp, &icmp6_targ, sizeof(icmp6_targ));
+  checksum_temp = ip_checksum_add(checksum_temp, payload, payload_size);
   icmp6_targ.icmp6_cksum = ip_checksum_finish(checksum_temp);
 
   io_targ[0].iov_base = &tun_header;
@@ -190,7 +190,7 @@ void icmp6_to_icmp(int fd, const struct ip6_hdr *ip6, const struct icmp6_hdr *ic
   icmp_targ.un.echo.id = icmp6->icmp6_id;
   icmp_targ.un.echo.sequence = icmp6->icmp6_seq;
 
-  temp_icmp_checksum = ip_checksum_add(0,(void *)&icmp_targ,sizeof(icmp_targ));
+  temp_icmp_checksum = ip_checksum_add(0, &icmp_targ, sizeof(icmp_targ));
   temp_icmp_checksum = ip_checksum_add(temp_icmp_checksum, (void *)payload, payload_size);
   icmp_targ.checksum = ip_checksum_finish(temp_icmp_checksum);
 
@@ -320,10 +320,10 @@ void tcp_translate(int fd, const struct tcphdr *tcp, const char *payload, size_t
   tcp_targ.check = 0;
 
   checksum = ip_checksum_add(checksum, &tcp_targ, sizeof(tcp_targ));
-  checksum = ip_checksum_add(checksum, payload, payload_size);
   if(options) {
     checksum = ip_checksum_add(checksum, options, options_size);
   }
+  checksum = ip_checksum_add(checksum, payload, payload_size);
   tcp_targ.check = ip_checksum_finish(checksum);
 
   io_targ[targ_index].iov_base = &tcp_targ;
