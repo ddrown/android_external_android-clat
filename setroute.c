@@ -28,6 +28,7 @@
 #include "netlink_msg.h"
 #include "setroute.h"
 #include "logging.h"
+#include "getroute.h"
 
 /* function: if_route
  * create/replace/delete a route
@@ -138,14 +139,40 @@ cleanup:
 }
 
 /* function: set_default_ipv6_route
- * sets the default route to be an interface
- * device - point to point interface to be the default route
+ * copies the default route on an interface (turns an RA route into a static
+ * route), which is needed to keep the route when forwarding is turned on
+ * device - interface to be the default route
  */
 void set_default_ipv6_route(const char *device) {
   struct in6_addr default_6 = IN6ADDR_ANY_INIT;
-  int i, status;
+  struct default_route_data default_route;
+  int status;
+  void *gateway = NULL;
 
-  if((status = if_route(device, AF_INET6, &default_6, 0, NULL, 1, 0, ROUTE_REPLACE)) < 0) {
+  memset(&default_route, '\0', sizeof(default_route));
+  default_route.request_family = AF_INET6;
+  default_route.request_interface_id = if_nametoindex(device);
+  if(default_route.request_interface_id == 0) {
+    logmsg(ANDROID_LOG_FATAL, "set_default_ipv6_route failed: no interface %s found", device);
+    exit(1);
+  }
+
+  status = get_default_route(&default_route);
+  if(status < 0) {
+    logmsg(ANDROID_LOG_FATAL, "set_default_ipv6_route/get_default_route failed: returned %d", status);
+    exit(1);
+  }
+
+  if(!default_route.reply_found_route) {
+    logmsg(ANDROID_LOG_FATAL, "set_default_ipv6_route/get_default_route failed: no default route found for %s", device);
+    exit(1);
+  }
+
+  if(default_route.reply_has_gateway) {
+    gateway = &default_route.reply_gateway.ip6;
+  }
+
+  if((status = if_route(device, AF_INET6, &default_6, 0, gateway, 1, 0, ROUTE_REPLACE)) < 0) {
     if(status == -EEXIST) {
       logmsg(ANDROID_LOG_WARN,"set_default_ipv6_route/if_route failed due to the route already existing");
     } else {
