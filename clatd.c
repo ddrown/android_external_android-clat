@@ -264,11 +264,11 @@ void drop_root() {
 
   prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
 
-  if(setgid(AID_CLATD) < 0) {
+  if(setgid(AID_CLAT) < 0) {
     logmsg(ANDROID_LOG_FATAL,"drop_root/setgid failed: %s",strerror(errno));
     exit(1);
   }
-  if(setuid(AID_CLATD) < 0) {
+  if(setuid(AID_CLAT) < 0) {
     logmsg(ANDROID_LOG_FATAL,"drop_root/setuid failed: %s",strerror(errno));
     exit(1);
   }
