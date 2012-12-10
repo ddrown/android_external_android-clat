@@ -34,6 +34,8 @@
 #include "config.h"
 #include "debug.h"
 
+static void process_next_ipv6_header(int fd, const char *next_header, size_t len_left, struct ip6_hdr *header, uint8_t next_proto);
+
 /* function: icmp6_packet
  * takes an icmp6 packet and sets it up for translation
  * fd     - tun interface fd
@@ -140,6 +142,65 @@ void log_bad_address(const char *fmt, const struct in6_addr *badaddr) {
 #endif
 }
 
+/* function: ip6_fragment
+ * takes an ipv6 fragment and hands it off to the layer 4 protocol function
+ * fd          - tun interface fd
+ * next_header - pointer to the fragment header
+ * len_left    - packet space left (including fragment header)
+ * header      - ipv6 header
+ */
+static void ip6_fragment(int fd, const char *next_header, size_t len_left, struct ip6_hdr *header) {
+  struct ip6_frag fragheader;
+
+  if(len_left < sizeof(fragheader)) {
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip6_fragment/(too small)");
+    return;
+  }
+
+  memcpy(&fragheader, next_header, sizeof(fragheader));
+  next_header = next_header + sizeof(fragheader);
+  len_left = len_left - sizeof(fragheader);
+
+  // currently only strips fragment header for offset=0, more=no
+  // needed for Juniper's NAT64
+  if(fragheader.ip6f_offlg & IP6F_OFF_MASK) {
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip6_fragment/fragments offset set");
+    return;
+  }
+  if(fragheader.ip6f_offlg & IP6F_MORE_FRAG) {
+    logmsg_dbg(ANDROID_LOG_ERROR,"ip6_fragment/more fragments set");
+    return;
+  }
+
+  process_next_ipv6_header(fd, next_header, len_left, header, fragheader.ip6f_nxt);
+}
+
+/* function: process_next_ipv6_header
+ * sends the next_header data to the responsible protocol's function
+ * fd          - tun interface fd
+ * next_header - pointer to the fragment header
+ * len_left    - packet space left (including fragment header)
+ * header      - ipv6 header
+ * next_proto  - the protocol of next_header
+ */
+static void process_next_ipv6_header(int fd, const char *next_header, size_t len_left, struct ip6_hdr *header, uint8_t next_proto) {
+  // does not support IPv6 extension headers, this will drop any packet with them
+  if(next_proto == IPPROTO_ICMPV6) {
+    icmp6_packet(fd,next_header,len_left,header);
+  } else if(next_proto == IPPROTO_TCP) {
+    tcp6_packet(fd,next_header,len_left,header);
+  } else if(next_proto == IPPROTO_UDP) {
+    udp6_packet(fd,next_header,len_left,header);
+  } else if(next_proto == IPPROTO_FRAGMENT) {
+    ip6_fragment(fd,next_header,len_left,header);
+  } else {
+#if CLAT_DEBUG
+    logmsg(ANDROID_LOG_ERROR,"process_next_ipv6_header/unknown next header type: %x",next_proto);
+    logcat_hexdump("ipv6/nxthdr", next_header, len_left);
+#endif
+  }
+}
+
 /* function: ipv6_packet
  * takes an ipv6 packet and hands it off to the layer 4 protocol function
  * fd     - tun interface fd
@@ -178,17 +239,5 @@ void ipv6_packet(int fd, const char *packet, size_t len) {
     return;
   }
 
-  // does not support IPv6 extension headers, this will drop any packet with them
-  if(header.ip6_nxt == IPPROTO_ICMPV6) {
-    icmp6_packet(fd,next_header,len_left,&header);
-  } else if(header.ip6_nxt == IPPROTO_TCP) {
-    tcp6_packet(fd,next_header,len_left,&header);
-  } else if(header.ip6_nxt == IPPROTO_UDP) {
-    udp6_packet(fd,next_header,len_left,&header);
-  } else {
-#if CLAT_DEBUG
-    logmsg(ANDROID_LOG_ERROR,"ipv6_packet/unknown next header type: %x",header.ip6_nxt);
-    logcat_hexdump("ipv6/nxthdr", packet, len);
-#endif
-  }
+  process_next_ipv6_header(fd, next_header, len_left, &header, header.ip6_nxt);
 }
