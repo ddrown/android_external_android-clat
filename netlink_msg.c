@@ -103,6 +103,21 @@ struct nl_msg *nlmsg_alloc_rtmsg(uint16_t type, uint16_t flags, struct rtmsg *rt
   return nlmsg_alloc_generic(type, flags, rt, sizeof(*rt));
 }
 
+/* function: netlink_set_kernel_only
+ * sets a socket to receive messages only from the kernel
+ * sock - socket to connect
+ */
+int netlink_set_kernel_only(struct nl_sock *nl_sk) {
+  struct sockaddr_nl addr = { AF_NETLINK, 0, 0, 0 };
+
+  if (!nl_sk) {
+    return -EFAULT;
+  }
+
+  int sockfd = nl_socket_get_fd(nl_sk);
+  return connect(sockfd, (struct sockaddr *) &addr, sizeof(addr));
+}
+
 /* function: send_netlink_msg
  * sends a netlink message, reads a response, and hands the response(s) to the callbacks
  * msg       - netlink message to send
@@ -119,6 +134,9 @@ void send_netlink_msg(struct nl_msg *msg, struct nl_cb *callbacks) {
     goto cleanup;
 
   if(nl_send_auto_complete(nl_sk, msg) < 0)
+    goto cleanup;
+
+  if(netlink_set_kernel_only(nl_sk) < 0)
     goto cleanup;
 
   nl_recvmsgs(nl_sk, callbacks);

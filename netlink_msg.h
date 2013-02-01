@@ -25,5 +25,6 @@ struct nl_msg *nlmsg_alloc_rtmsg(uint16_t type, uint16_t flags, struct rtmsg *rt
 void send_netlink_msg(struct nl_msg *msg, struct nl_cb *callbacks);
 void send_ifaddrmsg(uint16_t type, uint16_t flags, struct ifaddrmsg *ifa, struct nl_cb *callbacks);
 int netlink_sendrecv(struct nl_msg *msg);
+int netlink_set_kernel_only(struct nl_sock *nl_sk);
 
 #endif
