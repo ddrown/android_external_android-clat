@@ -502,12 +502,12 @@ int main(int argc, char **argv) {
   // run under a regular user
   drop_root();
 
+  configure_interface(uplink_interface, plat_prefix, &tunnel);
+
   if(signal(SIGTERM, got_sigterm) == SIG_ERR) {
     logmsg(ANDROID_LOG_FATAL, "sigterm handler failed: %s", strerror(errno));
     exit(1);
   }
-
-  configure_interface(uplink_interface, plat_prefix, &tunnel);
 
   // turning on forwarding in linux has a side effect of calling rt6_purge_dflt_routers
   // workaround: turn the RA-learned default route into a static route
