@@ -222,7 +222,7 @@ void interface_poll(const struct tun_data *tunnel) {
  * tunnel - tun device data
  */
 void configure_tun_ip(const struct tun_data *tunnel) {
-  struct in_addr default_4;
+  struct in_addr default_4, gateway;
   int status;
 
   default_4.s_addr = INADDR_ANY;
@@ -244,8 +244,10 @@ void configure_tun_ip(const struct tun_data *tunnel) {
 
   configure_tun_ipv6(tunnel);
 
+  gateway.s_addr = Global_Clatd_Config.ipv4_local_subnet.s_addr;
+
   /* setup default ipv4 route */
-  status = if_route(tunnel->device4, AF_INET, &default_4, 0, NULL, 1, 0, ROUTE_REPLACE);
+  status = if_route(tunnel->device4, AF_INET, &default_4, 0, &gateway, 1, 0, ROUTE_REPLACE);
   if(status < 0) {
     logmsg(ANDROID_LOG_FATAL,"configure_tun_ip/if_route failed: %s",strerror(-status));
     exit(1);
