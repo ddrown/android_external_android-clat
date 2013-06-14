@@ -290,14 +290,15 @@ void drop_root() {
 
 /* function: configure_interface
  * reads the configuration and applies it to the interface
+ * config_file      - the configuration file to use
  * uplink_interface - network interface to use to reach the ipv6 internet
  * plat_prefix      - PLAT prefix to use
  * tunnel           - tun device data
  */
-void configure_interface(const char *uplink_interface, const char *plat_prefix, struct tun_data *tunnel) {
+void configure_interface(const char *config_file, const char *uplink_interface, const char *plat_prefix, struct tun_data *tunnel) {
   int error;
 
-  if(!read_config("/system/etc/clatd.conf", uplink_interface, plat_prefix)) {
+  if(!read_config(config_file, uplink_interface, plat_prefix)) {
     logmsg(ANDROID_LOG_FATAL,"read_config failed");
     exit(1);
   }
@@ -438,8 +439,11 @@ void event_loop(const struct tun_data *tunnel) {
  */
 void print_help() {
   printf("android-clat arguments:\n");
+  printf("-----required----------\n");
   printf("-i [uplink interface]\n");
+  printf("-----optional----------\n");
   printf("-p [plat prefix]\n");
+  printf("-c [config file]\n");
 }
 
 /* function: main
@@ -449,17 +453,21 @@ int main(int argc, char **argv) {
   struct tun_data tunnel;
   int opt;
   char *uplink_interface = NULL, *plat_prefix = NULL;
+  char *config_file = "/system/etc/clatd.conf";
 
   strcpy(tunnel.device6, DEVICENAME6);
   strcpy(tunnel.device4, DEVICENAME4);
 
-  while((opt = getopt(argc, argv, "i:p:h")) != -1) {
+  while((opt = getopt(argc, argv, "i:p:c:h")) != -1) {
     switch(opt) {
       case 'i':
         uplink_interface = optarg;
         break;
       case 'p':
         plat_prefix = optarg;
+        break;
+      case 'c':
+        config_file = optarg;
         break;
       case 'h':
       default:
@@ -502,7 +510,7 @@ int main(int argc, char **argv) {
   // run under a regular user
   drop_root();
 
-  configure_interface(uplink_interface, plat_prefix, &tunnel);
+  configure_interface(config_file, uplink_interface, plat_prefix, &tunnel);
 
   if(signal(SIGTERM, got_sigterm) == SIG_ERR) {
     logmsg(ANDROID_LOG_FATAL, "sigterm handler failed: %s", strerror(errno));
