@@ -26,6 +26,7 @@
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 #include <linux/icmp.h>
+#include <linux/if_ether.h>
 
 #include "checksum.h"
 #include "clatd.h"
